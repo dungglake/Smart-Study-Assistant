@@ -16,7 +16,7 @@ def health_check(request):
     return JsonResponse({"status": "ok", "app": "planner"})
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def generate_plan(request):
     ser = GeneratePlanSer(data=request.data)
     ser.is_valid(raise_exception=True)

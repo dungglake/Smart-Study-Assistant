@@ -222,10 +222,14 @@ def solve_schedule(tasks: List[Task], slots: List[Slot], prefs: Prefs):
             model.Add(sum(xs) <= 1)
             model.Add(sum(xs) == A[s.id])
 
-    # (2) đủ slot cho mỗi task (mềm)
+    # (2) đủ slot cho mỗi task (mềm – thiếu giờ được đưa vào Y, nhưng không được dư)
     for t in tasks:
         xs = [X[(t.id, sid)] for sid in allowed[t.id]]
-        model.Add(sum(xs) + Y[t.id] >= req_slots[t.id])
+        # sum(xs): số slot thực sự được gán
+        # Y[t.id]: số slot thiếu (0..req_slots)
+        # => tổng = req_slots => không thể gán dư
+        model.Add(sum(xs) + Y[t.id] == req_slots[t.id])
+
 
     # (4) giới hạn theo ngày
     day_slots = defaultdict(list)
@@ -268,7 +272,7 @@ def solve_schedule(tasks: List[Task], slots: List[Slot], prefs: Prefs):
             c = build_cost(t, slot, prefs)
             costs.append(c * X[(t.id, sid)])
 
-    frag_terms = [START[(t.id, sid)] for (t, sid) in START]
+    frag_terms = list(START.values())
 
     model.Minimize(sum(costs) + LAMBDA_SLACK * sum(Y.values()) + LAMBDA_FRAG * sum(frag_terms))
 
