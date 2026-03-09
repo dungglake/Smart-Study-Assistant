@@ -24,7 +24,6 @@ class Slot:
 class Task:
     id: int
     subject_id: int
-    difficulty: int  # 1..5
     estimate_min: int
     due_at: Optional[datetime]
     kind: str = "study"  # study/review/...
@@ -43,6 +42,11 @@ class Prefs:
     easy_first_week: bool = True
     hard_first_day: bool = True
     focus_windows: Optional[List[dict]] = None  # [{"weekday": 0|1|..|"any", "start":"07:00","end":"11:00"}]
+
+    # NEW defaults (dev-controlled)
+    study_window_start: time = time(6, 0)
+    study_window_end: time = time(23, 0)
+    max_practice_min_per_day: int = 90
 
 
 # ======= Helpers =======
@@ -75,81 +79,116 @@ def mark_focus(slot: Slot, focus_windows: Optional[List[dict]]) -> bool:
 def overlap(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
     return a_start < b_end and b_start < a_end
 
+def _merge_intervals(intervals: List[Tuple[datetime, datetime]]) -> List[Tuple[datetime, datetime]]:
+    if not intervals:
+        return []
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged = [intervals[0]]
+    for s, e in intervals[1:]:
+        ps, pe = merged[-1]
+        if s <= pe:
+            merged[-1] = (ps, max(pe, e))
+        else:
+            merged.append((s, e))
+    return merged
 
-# ======= Build slots từ availability weekly + exceptions =======
 
-def build_slots(availability_weekly: List[dict], week_start: date, prefs: Prefs,
-                busy_exceptions: Optional[List[dict]] = None) -> List[Slot]:
+def _clip_interval(s: datetime, e: datetime, ws: datetime, we: datetime) -> Optional[Tuple[datetime, datetime]]:
+    s2 = max(s, ws)
+    e2 = min(e, we)
+    if s2 >= e2:
+        return None
+    return (s2, e2)
+
+
+def _subtract_intervals(window: Tuple[datetime, datetime], busies: List[Tuple[datetime, datetime]]) -> List[Tuple[datetime, datetime]]:
+    ws, we = window
+    free = []
+    cur = ws
+    for bs, be in busies:
+        if be <= cur:
+            continue
+        if bs > cur:
+            free.append((cur, min(bs, we)))
+        cur = max(cur, be)
+        if cur >= we:
+            break
+    if cur < we:
+        free.append((cur, we))
+    return [(s, e) for s, e in free if s < e]
+
+
+def normalize_busy_blocks(busy_items: List[dict]) -> List[Tuple[datetime, datetime]]:
+    """
+    busy item: {date, start, end, type}
+    Nếu end <= start => bận qua đêm (vd 23:00->06:00), tự kéo end sang ngày hôm sau.
+    Trả về list (start_dt, end_dt) timezone-aware theo current timezone.
+    """
     tz = timezone.get_current_timezone()
+    blocks: List[Tuple[datetime, datetime]] = []
+    for b in busy_items:
+        d: date = b["date"]
+        st: time = b["start"]
+        en: time = b["end"]
+
+        sdt = timezone.make_aware(datetime.combine(d, st), tz)
+        if en <= st:
+            edt = timezone.make_aware(datetime.combine(d + timedelta(days=1), en), tz)
+        else:
+            edt = timezone.make_aware(datetime.combine(d, en), tz)
+
+        blocks.append((sdt, edt))
+    return blocks
+
+
+def build_slots_from_busy_daily(busy_items: List[dict], week_start: date, prefs: Prefs) -> List[Slot]:
+    """
+    Tạo slot trong study window (default 06:00-23:00) rồi trừ busy blocks theo từng date.
+    week_start = min(date busy) (do views quyết định).
+    """
+    tz = timezone.get_current_timezone()
+    busy_blocks = normalize_busy_blocks(busy_items)
+
     slots: List[Slot] = []
     sid = 0
-    busy = []
-    for ex in (busy_exceptions or []):
-        bs = timezone.make_aware(datetime.fromisoformat(ex["from"])) if isinstance(ex["from"], str) else ex["from"]
-        be = timezone.make_aware(datetime.fromisoformat(ex["to"])) if isinstance(ex["to"], str) else ex["to"]
-        busy.append((bs, be))
 
     for d in range(prefs.horizon_days):
         day = week_start + timedelta(days=d)
         wd = day.weekday()  # 0..6 Mon..Sun
-        day_avails = [a for a in availability_weekly if int(a["weekday"]) == wd]
 
-        for a in day_avails:
-            start_t = parse_time_str(a["start"])
-            end_t = parse_time_str(a["end"])
-            # cắt thành các phiên session_len_min
-            cur = timezone.make_aware(datetime.combine(day, start_t), tz)
-            end_dt = timezone.make_aware(datetime.combine(day, end_t), tz)
-            while cur + timedelta(minutes=prefs.session_len_min) <= end_dt:
+        sw_start = timezone.make_aware(datetime.combine(day, prefs.study_window_start), tz)
+        sw_end = timezone.make_aware(datetime.combine(day, prefs.study_window_end), tz)
+
+        # collect busy blocks overlapping study window
+        day_busy: List[Tuple[datetime, datetime]] = []
+        for (bs, be) in busy_blocks:
+            clipped = _clip_interval(bs, be, sw_start, sw_end)
+            if clipped:
+                day_busy.append(clipped)
+
+        day_busy = _merge_intervals(day_busy)
+        free_blocks = _subtract_intervals((sw_start, sw_end), day_busy)
+
+        # cut into fixed sessions
+        for fs, fe in free_blocks:
+            cur = fs
+            while cur + timedelta(minutes=prefs.session_len_min) <= fe:
                 nxt = cur + timedelta(minutes=prefs.session_len_min)
-                # loại các phiên trùng busy_exceptions
-                skip = any(overlap(cur, nxt, bs, be) for (bs, be) in busy)
-                if not skip:
-                    slot = Slot(
-                        id=sid,
-                        start=cur,
-                        end=nxt,
-                        day_idx=wd,
-                        is_focus=False,  # cập nhật sau
-                    )
-                    slots.append(slot)
-                    sid += 1
-                # chèn break ảo: để solver không phải xếp liên tiếp quá dài, đã có ràng buộc consecutive; break_min chỉ là tham số UI
+                slots.append(Slot(
+                    id=sid,
+                    start=cur,
+                    end=nxt,
+                    day_idx=wd,
+                    is_focus=False,
+                ))
+                sid += 1
                 cur = nxt
 
-    # Đánh dấu focus
-    for i, s in enumerate(slots):
+    # mark focus (nếu bạn vẫn dùng)
+    for s in slots:
         s.is_focus = mark_focus(s, prefs.focus_windows or [])
 
     return slots
-
-
-# ======= Expand exams -> review tasks (tuỳ chọn) =======
-
-def expand_exams_to_review_tasks(exams: List[dict], subjects_by_id: Dict[int, dict],
-                                 session_len_min: int, default_pattern: List[int] = [1, 2, 4, 7]) -> List[Task]:
-    """Tạo các review task 20' cho mỗi ngày trước kỳ thi theo pattern (1/2/4/7 ngày)."""
-    tasks: List[Task] = []
-    for ex in exams or []:
-        subj_id = int(ex["subject_id"])
-        diff = int(subjects_by_id[subj_id]["difficulty"])
-        exam_at = datetime.fromisoformat(ex["at"])
-        exam_at = timezone.make_aware(exam_at)
-        pattern = ex.get("review_pattern", default_pattern)
-        for k in pattern:
-            day = (exam_at.date() - timedelta(days=int(k)))
-            # review 20 phút (hoặc làm tròn lên 1 phiên nếu session_len_min > 20)
-            est = max(20, session_len_min)
-            tasks.append(Task(
-                id=int(f"9{subj_id}{k}"),  # id tạm
-                subject_id=subj_id,
-                difficulty=diff,
-                estimate_min=est,
-                due_at=exam_at,  # để cost ưu tiên gần thi
-                kind="review",
-            ))
-    return tasks
-
 
 # ======= Cost function (chi phí thấp = tốt; mục tiêu: minimize) =======
 
@@ -167,7 +206,8 @@ def build_cost(task: Task, slot: Slot, prefs: Prefs) -> int:
     # 2) Dễ/nhỏ đầu tuần
     if prefs.easy_first_week:
         week_pos = slot.day_idx  # 0..6
-        easy_bonus = (1.0 / max(1, task.difficulty)) + (1.0 / max(0.5, task.estimate_min / 60.0))
+        diff = getattr(task, "difficulty", 3)  # default difficulty = 3
+        easy_bonus = (1.0 / max(1, diff)) + (1.0 / max(0.5, task.estimate_min / 60.0))
         cost -= 10.0 * (7 - week_pos) * easy_bonus
 
     # 3) Khó trong giờ vàng
@@ -246,6 +286,19 @@ def solve_schedule(tasks: List[Task], slots: List[Slot], prefs: Prefs):
         for i in range(0, len(sids) - K):
             window = sids[i : i + K + 1]
             model.Add(sum(A[sid] for sid in window) <= K)
+            
+    # (6) cap practice per day để "rải đều" (dev default)
+    # task.kind == "practice" chỉ nên chiếm tối đa prefs.max_practice_min_per_day mỗi ngày
+    for d, sids in day_slots.items():
+        practice_vars = []
+        for t in tasks:
+            if t.kind != "practice":
+                continue
+            for sid in sids:
+                if (t.id, sid) in X:
+                    practice_vars.append(X[(t.id, sid)])
+        if practice_vars:
+            model.Add(sum(practice_vars) * slot_min <= prefs.max_practice_min_per_day)
 
     # (START) phát hiện bắt đầu một chuỗi task t
     for t in tasks:
