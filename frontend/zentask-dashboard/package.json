@@ -15,6 +15,7 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
+    "@tailwindcss/forms": "^0.5.11",
     "iconsax-vue": "^0.1.7",
     "vue": "^3.5.29",
     "vue-iconsax": "^2.0.0",

@@ -1,38 +1,32 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-    "content": [
-        "./src/**/*.{js,jsx,ts,tsx,vue}"
+
+export default {
+    content: [
+        "./index.html",
+        "./src/**/*.{vue,js,ts,jsx,tsx}"
     ],
-    "theme": {
-        "extend": {
-            "colors": {
-                "white": "#fff",
-                "lightgray": "#d4d4d4",
-                "darkslategray": "#404040",
-                "gray": "#171717",
-                "mediumblue": "#5c01d5",
-                "dimgray": "#737373"
+    theme: {
+        extend: {
+
+            colors: {
+                primary: "#5c01d5",
+                lightgray: "#d4d4d4",
+                dark: "#171717",
+                dimgray: "#737373"
             },
-            "fontFamily": {
-                "inter": "Inter",
-                "sf-pro": "SF Pro"
+
+            fontFamily: {
+                inter: ["Inter", "sans-serif"],
+                sf: ["SF Pro", "sans-serif"]
             },
-            "borderRadius": {
-                "num-6": "6px"
-            },
-            "padding": {
-                "num-12": "12px",
-                "num-10": "10px"
+
+            borderRadius: {
+                sidebar: "32px"
             }
-        },
-        "fontSize": {
-            "num-14": "14px"
-        },
-        "lineHeight": {
-            "num-20": "20px"
+
         }
     },
-    "corePlugins": {
-        "preflight": false
-    }
+    plugins: [
+        require('@tailwindcss/forms')
+    ]
 }
