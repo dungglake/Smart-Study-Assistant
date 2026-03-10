@@ -8,6 +8,7 @@ import BookOpenIcon from '@/assets/icon/iconsax-book-open-dp3g02ju-.svg'
 import ChatboxIcon from '@/assets/icon/iconsax-chatbox-m2bhctpp-.svg'
 import InfoCircleIcon from '@/assets/icon/iconsax-info-circle-d8f1u5ak-.svg'
 import SearchIcon from '@/assets/icon/iconsax-search-arupq8bc-.svg'
+import BellIcon from '@/assets/icon/iconsax-bell-xnzimhdd-.svg'
 
 export {
     Logo,
@@ -19,4 +20,5 @@ export {
     ChatboxIcon,
     InfoCircleIcon,
     SearchIcon,
+    BellIcon,
 }

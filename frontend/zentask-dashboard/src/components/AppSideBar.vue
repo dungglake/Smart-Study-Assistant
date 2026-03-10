@@ -12,6 +12,14 @@ import {
   SearchIcon,
 } from '@/icons'
 
+const emit = defineEmits<{
+  (e: 'change-page', key: string): void
+}>()
+const handleMenuClick = (key: string) => {
+  activeItem.value = key
+  emit('change-page', key)
+}
+
 const activeItem = ref('dashboard')
 
 const menuItems = [
@@ -97,7 +105,7 @@ const bottomItems = [
         <li v-for="item in menuItems" :key="item.key">
           <button
             type="button"
-            @click="activeItem = item.key"
+             @click="handleMenuClick(item.key)"
             class="group relative flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition"
             :class="
               activeItem === item.key
