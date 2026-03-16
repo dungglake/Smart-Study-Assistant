@@ -12,7 +12,11 @@ export default {
                 primary: "#5c01d5",
                 lightgray: "#d4d4d4",
                 dark: "#171717",
-                dimgray: "#737373"
+                dimgray: "#737373",
+                tomato: "#f73131",
+                white: "#fff",
+                darkslategray: "#404040",
+                mediumblue: "#5c01d5"
             },
 
             fontFamily: {
@@ -22,9 +26,20 @@ export default {
 
             borderRadius: {
                 sidebar: "32px"
-            }
+            },
 
-        }
+            "padding": {
+                "num-0": "0px"
+            },
+
+            "fontSize": {
+                "num-16": "16px"
+            },
+
+            "lineHeight": {
+                "num-24": "24px"
+            }
+        },
     },
     plugins: [
         require('@tailwindcss/forms')
