@@ -7,7 +7,6 @@ import {
   LoginLogoText,
   LoginHeroImage,
   LoginHeroShape,
-  LoginStudentImage,
   LoginGlowShape,
   LoginCardShape,
   Vector,
@@ -203,11 +202,28 @@ const handleLogin = () => {
         />
 
         <!-- Optional extra vectors -->
-        <img :src="Vector17" alt="" class="pointer-events-none absolute bottom-12 left-10 z-0 w-14 opacity-20" />
-        <img :src="Vector18" alt="" class="pointer-events-none absolute bottom-28 left-28 z-0 w-10 opacity-20" />
-        <img :src="Vector19" alt="" class="pointer-events-none absolute right-40 top-16 z-0 w-12 opacity-20" />
-        <img :src="Vector20" alt="" class="pointer-events-none absolute bottom-20 right-20 z-0 w-12 opacity-20" />
-        <img :src="Vector21" alt="" class="pointer-events-none absolute left-1/2 top-20 z-0 w-10 -translate-x-1/2 opacity-20" />
+        <img :src="Vector" alt="" class="pointer-events-none absolute left-16 top-16 z-0 w-10 opacity-20" />
+        <img :src="Vector1" alt="" class="pointer-events-none absolute left-32 top-32 z-0 w-12 opacity-20" />
+        <img :src="Vector2" alt="" class="pointer-events-none absolute left-48 top-48 z-0 w-8 opacity-20" />
+        <img :src="Vector3" alt="" class="pointer-events-none absolute left-64 top-64 z-0 w-14 opacity-20" />
+        <img :src="Vector4" alt="" class="pointer-events-none absolute left-80 top-80 z-0 w-10 opacity-20" />
+        <img :src="Vector5" alt="" class="pointer-events-none absolute left-96 top-96 z-0 w-12 opacity-20" />
+        <img :src="Vector6" alt="" class="pointer-events-none absolute left-112 top-112 z-0 w-8 opacity-20" />
+        <img :src="Vector7" alt="" class="pointer-events-none absolute left-128 top-128 z-0 w-14 opacity-20" />
+        <img :src="Vector8" alt="" class="w-full h-[15.2px] relative max-w-full overflow-hidden" />
+        <img :src="Vector9" alt="" class="pointer-events-none absolute left-160 top-160 z-0 w-12 opacity-20" />
+        <img :src="Vector10" alt="" class="pointer-events-none absolute left-176 top-176 z-0 w-8 opacity-20" />
+        <img :src="Vector11" alt="" class="pointer-events-none absolute left-192 top-192 z-0 w-14 opacity-20" />
+        <img :src="Vector12" alt="" class="pointer-events-none absolute left-208 top-208 z-0 w-10 opacity-20" />
+        <img :src="Vector13" alt="" class="pointer-events-none absolute left-224 top-224 z-0 w-12 opacity-20" />
+        <img :src="Vector14" alt="" class="pointer-events-none absolute left-240 top-240 z-0 w-8 opacity-20" />
+        <img :src="Vector15" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
+        <img :src="Vector16" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
+        <img :src="Vector17" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
+        <img :src="Vector18" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
+        <img :src="Vector19" alt="" class="w-full h-9 relative max-w-full overflow-hidden" />
+        <img :src="Vector20" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
+        <img :src="Vector21" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
         <img :src="Vector22" alt="" class="pointer-events-none absolute left-1/3 bottom-16 z-0 w-10 opacity-20" />
 
         <!-- Main student image -->
