@@ -9,29 +9,8 @@ import {
   LoginHeroShape,
   LoginGlowShape,
   LoginCardShape,
-  Vector,
-  Vector1,
-  Vector2,
-  Vector3,
-  Vector4,
-  Vector5,
-  Vector6,
-  Vector7,
-  Vector8,
-  Vector9,
-  Vector10,
-  Vector11,
-  Vector12,
-  Vector13,
-  Vector14,
-  Vector15,
-  Vector16,
-  Vector17,
-  Vector18,
-  Vector19,
-  Vector20,
-  Vector21,
-  Vector22,
+  Zentask,
+  SmartStudyAssistant,
 } from '@/icons'
 
 const router = useRouter()
@@ -75,7 +54,6 @@ const handleLogin = () => {
             <div class="mb-8">
               <div class="mb-8 flex items-center gap-3">
                 <img :src="LoginLogoMark" alt="Logo mark" class="h-12 w-auto" />
-                <img :src="LoginLogoText" alt="Logo text" class="h-6 w-auto" />
               </div>
 
               <div class="h-px w-full bg-[#e5e5e5]" />
@@ -180,59 +158,82 @@ const handleLogin = () => {
           </div>
         </div>
 
-        <!-- RIGHT PANEL -->
-      <div class="relative hidden flex-1 overflow-hidden bg-[#f7f8ff] lg:block">
-        <!-- Decorations -->
+      <!-- RIGHT PANEL -->
+      <div class="relative hidden flex-1 overflow-hidden lg:block">
+        <div class="absolute inset-0 bg-[#E2E6FF]"></div>
+        <div 
+          class="absolute inset-0 bg-[linear-gradient(10deg,rgba(207,214,255,0)_8%,rgba(212,183,248,0.35)_72%,rgba(93,5,214,0.45)_92%)]">
+        </div>
+
+        <!-- Radial tím đậm phía phải -->
+        <div
+          class="absolute inset-0 
+          bg-[radial-gradient(circle_at_92%_12%,rgba(93,5,214,0.55)_0%,rgba(93,5,214,0.22)_16%,transparent_34%)]">
+        </div>
+ 
+        <!-- Glow nhẹ phía trái dưới -->
+        <div
+          class="absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,rgba(212,183,248,0.35)_0%,rgba(207,214,255,0)_60%)]">
+        </div>
+        
+        <!-- Large background shapes -->
         <img
           :src="LoginHeroShape"
-          alt="Login hero shape"
-          class="absolute left-0 top-0 z-10 w-[320px] object-contain xl:w-[380px]"
+          alt="Top shape"
+          class="pointer-events-none absolute left-0 top-0 z-10 w-[260px] object-contain xl:w-[450px]"
         />
 
         <img
           :src="LoginGlowShape"
-          alt="Decor left middle"
-          class="absolute left-0 top-[520px] z-10 w-[180px] object-contain xl:w-[220px]"
+          alt="Bottom left glow"
+          class="pointer-events-none absolute bottom-0 left-0 z-10 w-[210px] object-contain xl:w-[220px]"
         />
 
         <img
           :src="LoginCardShape"
-          alt="Login card shape"
-          class="absolute right-0 top-[110px] z-10 w-[240px] object-contain xl:w-[300px]"
+          alt="Right card shape"
+          class="pointer-events-none absolute bottom-[70px] right-0 z-10 w-[230px] object-contain xl:w-[370px]"
         />
 
-        <!-- Optional extra vectors -->
-        <img :src="Vector" alt="" class="pointer-events-none absolute left-16 top-16 z-0 w-10 opacity-20" />
-        <img :src="Vector1" alt="" class="pointer-events-none absolute left-32 top-32 z-0 w-12 opacity-20" />
-        <img :src="Vector2" alt="" class="pointer-events-none absolute left-48 top-48 z-0 w-8 opacity-20" />
-        <img :src="Vector3" alt="" class="pointer-events-none absolute left-64 top-64 z-0 w-14 opacity-20" />
-        <img :src="Vector4" alt="" class="pointer-events-none absolute left-80 top-80 z-0 w-10 opacity-20" />
-        <img :src="Vector5" alt="" class="pointer-events-none absolute left-96 top-96 z-0 w-12 opacity-20" />
-        <img :src="Vector6" alt="" class="pointer-events-none absolute left-112 top-112 z-0 w-8 opacity-20" />
-        <img :src="Vector7" alt="" class="pointer-events-none absolute left-128 top-128 z-0 w-14 opacity-20" />
-        <img :src="Vector8" alt="" class="w-full h-[15.2px] relative max-w-full overflow-hidden" />
-        <img :src="Vector9" alt="" class="pointer-events-none absolute left-160 top-160 z-0 w-12 opacity-20" />
-        <img :src="Vector10" alt="" class="pointer-events-none absolute left-176 top-176 z-0 w-8 opacity-20" />
-        <img :src="Vector11" alt="" class="pointer-events-none absolute left-192 top-192 z-0 w-14 opacity-20" />
-        <img :src="Vector12" alt="" class="pointer-events-none absolute left-208 top-208 z-0 w-10 opacity-20" />
-        <img :src="Vector13" alt="" class="pointer-events-none absolute left-224 top-224 z-0 w-12 opacity-20" />
-        <img :src="Vector14" alt="" class="pointer-events-none absolute left-240 top-240 z-0 w-8 opacity-20" />
-        <img :src="Vector15" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector16" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector17" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector18" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector19" alt="" class="w-full h-9 relative max-w-full overflow-hidden" />
-        <img :src="Vector20" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector21" alt="" class="w-full h-[35.1px] relative max-w-full overflow-hidden" />
-        <img :src="Vector22" alt="" class="pointer-events-none absolute left-1/3 bottom-16 z-0 w-10 opacity-20" />
-
-        <!-- Main student image -->
-        <div class="relative flex h-full items-end justify-center">
+        <!-- Main character -->
+        <div class="absolute top-[250px] right-[-80px] z-20 flex h-[85%] items-end">
           <img
             :src="LoginHeroImage"
             alt="Login hero image"
-            class="relative z-20 max-h-[92vh] w-auto object-contain"
+            class="h-full w-auto object-contain scale-80"
           />
+        </div>
+          
+        <!-- White logo block -->
+        <div class="absolute top-[250px] z-20 flex items-start left-[14%] gap-3">
+          <!-- Left mark/icon -->
+          <img
+            :src="LoginLogoText"
+            alt="Zentask mark"
+            class="h-[130px] w-auto object-contain brightness-0 invert shrink-0"
+          />
+
+          <!-- Right text -->
+          <div class="flex flex-col items-start pt-[40px]">
+            <div class="flex items-center leading-none">
+              <img
+                :src="Zentask"
+                alt="Zentask"
+                class="block h-[38px] w-auto"
+              />
+              
+            </div>
+            
+            <div class="mt-4 flex items-center leading-none">
+              <div class="flex items-center">
+                <img
+                  :src="SmartStudyAssistant"
+                  alt="Smart Study Assistant"
+                  class="mt-2 block h-[23px] w-auto"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

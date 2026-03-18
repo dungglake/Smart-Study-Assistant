@@ -22,29 +22,8 @@ import LoginHeroShape from '@/assets/img/Gemini_Generated_Image_entohkentohkento
 import LoginHeroImage from '@/assets/img/2299 1.png'
 
 // Optional extra vectors 
-import Vector from '@/assets/icon/Vector.svg'
-import Vector1 from '@/assets/icon/Vector-1.svg'
-import Vector2 from '@/assets/icon/Vector-2.svg'
-import Vector3 from '@/assets/icon/Vector-3.svg'
-import Vector4 from '@/assets/icon/Vector-4.svg'
-import Vector5 from '@/assets/icon/Vector-5.svg'
-import Vector6 from '@/assets/icon/Vector-6.svg'
-import Vector7 from '@/assets/icon/Vector-7.svg'
-import Vector8 from '@/assets/icon/Vector-8.svg'
-import Vector9 from '@/assets/icon/Vector-9.svg'
-import Vector10 from '@/assets/icon/Vector-10.svg'
-import Vector11 from '@/assets/icon/Vector-11.svg'
-import Vector12 from '@/assets/icon/Vector-12.svg'
-import Vector13 from '@/assets/icon/Vector-13.svg'
-import Vector14 from '@/assets/icon/Vector-14.svg'
-import Vector15 from '@/assets/icon/Vector-15.svg'
-import Vector16 from '@/assets/icon/Vector-16.svg'
-import Vector17 from '@/assets/icon/Vector-17.svg'
-import Vector18 from '@/assets/icon/Vector-18.svg'
-import Vector19 from '@/assets/icon/Vector-19.svg'
-import Vector20 from '@/assets/icon/Vector-20.svg'
-import Vector21 from '@/assets/icon/Vector-21.svg'
-import Vector22 from '@/assets/icon/Vector-22.svg'
+import Zentask from '@/assets/icon/Zentask.svg'
+import SmartStudyAssistant from '@/assets/icon/SmartStudyAssistant.svg'
 
 export {
     Logo,
@@ -64,27 +43,6 @@ export {
     LoginGlowShape,
     LoginCardShape,
     LoginHeroShape,
-    Vector,
-    Vector1,
-    Vector2,
-    Vector3,
-    Vector4,
-    Vector5,
-    Vector6,
-    Vector7,
-    Vector8,
-    Vector9,
-    Vector10,
-    Vector11,
-    Vector12,
-    Vector13,
-    Vector14,
-    Vector15,
-    Vector16,
-    Vector17,
-    Vector18,
-    Vector19,
-    Vector20,
-    Vector21,
-    Vector22,
+    Zentask,
+    SmartStudyAssistant,
 }
