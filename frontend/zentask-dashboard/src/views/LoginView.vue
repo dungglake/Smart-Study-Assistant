@@ -125,7 +125,7 @@ const handleLogin = () => {
                   <input
                     v-model="rememberMe"
                     type="checkbox"
-                    class="h-[18px] w-[18px] rounded border border-[#d4d4d4]"
+                    class="h-[18px] w-[18px] rounded border border-[#d4d4d4] cursor-pointer"
                   />
                   <span class="text-base leading-6 text-[#404040]">
                     Ghi nhớ đăng nhập
@@ -149,11 +149,19 @@ const handleLogin = () => {
                 :class="
                   isLoginDisabled
                     ? 'cursor-not-allowed bg-[#5c01d5]/20'
-                    : 'bg-[#5c01d5] hover:opacity-90'
+                    : 'cursor-pointer bg-[#5c01d5] hover:opacity-90'
                 "
               >
                 <span class="text-base font-medium leading-6">Login</span>
               </button>
+              <div class="pt-2 text-center">
+                <button
+                  type="button"
+                  class="text-base font-medium leading-6 text-[#5c01d5] transition hover:underline hover:opacity-70 cursor-pointer"
+                >
+                  Register
+                </button>
+              </div>
             </div>
           </div>
         </div>
