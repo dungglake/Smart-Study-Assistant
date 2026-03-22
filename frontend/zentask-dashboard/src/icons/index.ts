@@ -12,6 +12,7 @@ import BellIcon from '@/assets/icon/iconsax-bell-xnzimhdd-.svg'
 
 // login assets
 import LoginEyeOffIcon from '@/assets/icon/eye-off.svg'
+import LoginEyeOnIcon from '@/assets/icon/eye.svg'
 import LoginLogoMark from '@/assets/icon/Group 19.svg'
 import LoginLogoText from '@/assets/icon/Group 7.svg'
 
@@ -37,6 +38,7 @@ export {
     SearchIcon,
     BellIcon,
     LoginEyeOffIcon,
+    LoginEyeOnIcon,
     LoginLogoMark,
     LoginLogoText,
     LoginHeroImage,

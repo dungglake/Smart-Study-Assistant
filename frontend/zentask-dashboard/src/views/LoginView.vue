@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   LoginEyeOffIcon,
+  LoginEyeOnIcon,
   LoginLogoMark,
   LoginLogoText,
   LoginHeroImage,
@@ -104,9 +105,9 @@ const handleLogin = () => {
                         @click="showPassword = !showPassword"
                       >
                         <img
-                          :src="LoginEyeOffIcon"
+                          :src="showPassword ? LoginEyeOnIcon : LoginEyeOffIcon"
                           alt="Toggle password"
-                          class="h-6 w-6"
+                          class="h-6 w-6 cursor-pointer"
                         />
                       </button>
                     </div>
@@ -134,7 +135,7 @@ const handleLogin = () => {
 
                 <button
                   type="button"
-                  class="text-right text-base leading-6 text-[#404040]"
+                  class="text-right text-base leading-6 text-[#404040] cursor-pointer hover:underline"
                 >
                   Quên mật khẩu?
                 </button>
@@ -169,79 +170,59 @@ const handleLogin = () => {
       <!-- RIGHT PANEL -->
       <div class="relative hidden flex-1 overflow-hidden lg:block">
         <div class="absolute inset-0 bg-[#E2E6FF]"></div>
-        <div 
-          class="absolute inset-0 bg-[linear-gradient(10deg,rgba(207,214,255,0)_8%,rgba(212,183,248,0.35)_72%,rgba(93,5,214,0.45)_92%)]">
-        </div>
+        <div class="absolute inset-0 bg-[linear-gradient(10deg,rgba(207,214,255,0)_8%,rgba(212,183,248,0.35)_72%,rgba(93,5,214,0.45)_92%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_92%_12%,rgba(93,5,214,0.55)_0%,rgba(93,5,214,0.22)_16%,transparent_34%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,rgba(212,183,248,0.35)_0%,rgba(207,214,255,0)_60%)]"></div>
 
-        <!-- Radial tím đậm phía phải -->
-        <div
-          class="absolute inset-0 
-          bg-[radial-gradient(circle_at_92%_12%,rgba(93,5,214,0.55)_0%,rgba(93,5,214,0.22)_16%,transparent_34%)]">
-        </div>
- 
-        <!-- Glow nhẹ phía trái dưới -->
-        <div
-          class="absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,rgba(212,183,248,0.35)_0%,rgba(207,214,255,0)_60%)]">
-        </div>
-        
-        <!-- Large background shapes -->
         <img
           :src="LoginHeroShape"
           alt="Top shape"
-          class="pointer-events-none absolute left-0 top-0 z-10 w-[260px] object-contain xl:w-[450px]"
+          class="pointer-events-none absolute left-0 top-0 z-10 w-[180px] lg:w-[240px] xl:w-[420px] object-contain"
         />
 
         <img
           :src="LoginGlowShape"
           alt="Bottom left glow"
-          class="pointer-events-none absolute bottom-0 left-0 z-10 w-[210px] object-contain xl:w-[220px]"
+          class="pointer-events-none absolute bottom-0 left-0 z-10 w-[140px] lg:w-[180px] xl:w-[220px] object-contain"
         />
 
         <img
           :src="LoginCardShape"
           alt="Right card shape"
-          class="pointer-events-none absolute bottom-[70px] right-0 z-10 w-[230px] object-contain xl:w-[370px]"
+          class="pointer-events-none absolute bottom-[40px] right-0 z-10 w-[170px] lg:w-[210px] xl:w-[340px] object-contain"
         />
 
-        <!-- Main character -->
-        <div class="absolute top-[250px] right-[-80px] z-20 flex h-[85%] items-end">
-          <img
-            :src="LoginHeroImage"
-            alt="Login hero image"
-            class="h-full w-auto object-contain scale-80"
-          />
-        </div>
-          
-        <!-- White logo block -->
-        <div class="absolute top-[250px] z-20 flex items-start left-[14%] gap-3">
-          <!-- Left mark/icon -->
-          <img
-            :src="LoginLogoText"
-            alt="Zentask mark"
-            class="h-[130px] w-auto object-contain brightness-0 invert shrink-0"
-          />
+        <!-- Logo -->
+        <div class="absolute z-20 left-[6%] top-[110px] lg:left-[8%] lg:top-[130px] xl:left-[18%] xl:top-[210px]">
+          <div class="flex items-center gap-2 lg:gap-3 xl:gap-4">
+            <img
+              :src="LoginLogoText"
+              alt="Zentask mark"
+              class="h-[68px] lg:h-[88px] xl:h-[120px] w-auto shrink-0 object-contain brightness-0 invert"
+            />
 
-          <!-- Right text -->
-          <div class="flex flex-col items-start pt-[40px]">
-            <div class="flex items-center leading-none">
+            <div class="flex flex-col justify-center">
               <img
                 :src="Zentask"
                 alt="Zentask"
-                class="block h-[38px] w-auto"
+                class="block h-[22px] lg:h-[28px] xl:h-[36px] w-auto"
               />
-              
-            </div>
-            
-            <div class="mt-4 flex items-center leading-none">
-              <div class="flex items-center">
-                <img
-                  :src="SmartStudyAssistant"
-                  alt="Smart Study Assistant"
-                  class="mt-2 block h-[23px] w-auto"
-                />
-              </div>
+              <img
+                :src="SmartStudyAssistant"
+                alt="Smart Study Assistant"
+                class="mt-2 block h-[14px] lg:h-[17px] xl:h-[22px] w-auto"
+              />
             </div>
           </div>
+        </div>
+
+        <!-- Character -->
+        <div class="absolute bottom-0 right-0 z-20">
+          <img
+            :src="LoginHeroImage"
+            alt="Login hero image"
+            class="max-h-[68vh] lg:max-h-[75vh] xl:max-h-[85vh] w-auto object-contain translate-x-[-40px] lg:translate-x-[-20px]"
+          />
         </div>
       </div>
     </div>
