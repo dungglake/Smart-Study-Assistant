@@ -18,26 +18,20 @@ from .tokens import password_reset_token
 
 User = get_user_model()
 
-
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        serializer.save()
 
-        # AUTO-LOGIN: cấp token ngay sau đăng ký
-        refresh = RefreshToken.for_user(user)
         return Response(
             {
-                "detail": "Đăng ký thành công.",
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
+                "detail": "Đăng ký thành công. Vui lòng đăng nhập."
             },
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_201_CREATED
         )
-
 
 class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
@@ -50,13 +44,13 @@ class LogoutView(APIView):
     def post(self, request):
         refresh = request.data.get("refresh")
         if not refresh:
-            return Response({"detail": "Thiếu refresh token."}, status=400)
+            return Response({"detail": "Missing refresh token."}, status=400)
         try:
             token = RefreshToken(refresh)
-            token.blacklist()  # cần bật rest_framework_simplejwt.token_blacklist
+            token.blacklist()  
         except Exception:
-            return Response({"detail": "Refresh token không hợp lệ."}, status=400)
-        return Response({"detail": "Đăng xuất thành công."})
+            return Response({"detail": "Refresh token is invalid."}, status=400)
+        return Response({"detail": "Logout successful."})
         
 
 class RequestPasswordResetView(APIView):
@@ -67,18 +61,17 @@ class RequestPasswordResetView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
 
-        # Luôn trả 200 (không lộ email tồn tại hay không)
         user = User.objects.filter(email__iexact=email).first()
         if user:
             link = make_password_reset_link(user)
-            subject = "Đặt lại mật khẩu SmartStudyAssistant"
+            subject = "Reset your SmartStudyAssistant password"
             message = (
-                f"Xin chào {user.first_name or user.username},\n\n"
-                f"Bạn đã yêu cầu đặt lại mật khẩu. Nhấp vào liên kết sau:\n{link}\n\n"
-                "Nếu không phải bạn yêu cầu, hãy bỏ qua email này."
+                f"Hello {user.first_name or user.username},\n\n"
+                f"You have requested to reset your password. Please click the link below:\n{link}\n\n"
+                "If you did not request this, please ignore this email."
             )
             send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=False)
-        return Response({"detail": "Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu."})
+        return Response({"detail": "If the email exists, we have sent password reset instructions."})
 
 
 class PasswordResetConfirmView(APIView):
@@ -94,11 +87,12 @@ class PasswordResetConfirmView(APIView):
 
         user = get_user_from_uid(uid)
         if not user:
-            return Response({"detail": "Liên kết không hợp lệ."}, status=400)
+            return Response({"detail": "The link is invalid."}, status=400)
 
         if not password_reset_token.check_token(user, token):
-            return Response({"detail": "Token không hợp lệ hoặc đã hết hạn."}, status=400)
+            return Response({"detail": "Token is invalid or has expired."}, status=400)
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
-        return Response({"detail": "Đặt lại mật khẩu thành công."})
+        return Response({"detail": "Password reset successfully."})
+    

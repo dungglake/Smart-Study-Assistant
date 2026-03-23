@@ -5,6 +5,12 @@ export default {
         "./index.html",
         "./src/**/*.{vue,js,ts,jsx,tsx}"
     ],
+    safelist: [
+        'bg-red-500',
+        'bg-yellow-500',
+        'bg-green-600',
+        'bg-[#e5e5e5]',
+    ],
     theme: {
         extend: {
 

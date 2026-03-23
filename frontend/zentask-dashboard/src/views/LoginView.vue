@@ -15,38 +15,81 @@ import {
 } from '@/icons'
 
 const router = useRouter()
-
-const username = ref('')
-const password = ref('')
-const rememberMe = ref(false)
 const showPassword = ref(false)
+const rememberMe = ref(false)
+const identifier = ref('')
+const password = ref('')
 const errorMessage = ref('')
+const isLoading = ref(false)
 
-const isLoginDisabled = computed(() => {
-  return !username.value.trim() || !password.value.trim()
+const isValidEmail = computed(() => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(identifier.value.trim())
 })
 
-const handleLogin = () => {
-  if (isLoginDisabled.value) return
+const isValidUsername = computed(() => {
+  return identifier.value.trim().length >= 3
+})
 
+const isIdentifierValid = computed(() => {
+  const value = identifier.value.trim()
+  if (!value) return false
+  return value.includes('@') ? isValidEmail.value : isValidUsername.value
+})
+
+const isLoginDisabled = computed(() => {
+  return !isIdentifierValid.value || !password.value.trim() || isLoading.value
+})
+
+const goToForgotPassword = () => {
+  router.push('/forgot-password')
+}
+
+const handleLogin = async () => {
   errorMessage.value = ''
 
-  // demo login local
-  // sau này bạn thay bằng API thật
-  if (username.value === 'admin' && password.value === '123456') {
-    localStorage.setItem('isLoggedIn', 'true')
-    localStorage.setItem('username', username.value)
-    router.push('/dashboard')
-    return
-  }
+  if (isLoginDisabled.value) return
 
-  errorMessage.value = 'Thông tin đăng nhập không đúng.'
+  isLoading.value = true
+
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/auth/login/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: identifier.value.trim(),
+        password: password.value,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      errorMessage.value =
+        data.detail ||
+        data.username?.[0] ||
+        data.password?.[0] ||
+        'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'
+      return
+    }
+
+    localStorage.setItem('access_token', data.access)
+    localStorage.setItem('refresh_token', data.refresh)
+    localStorage.setItem('user_identifier', identifier.value.trim())
+
+    router.push('/dashboard')
+  } catch (error) {
+    errorMessage.value = 'Không thể kết nối tới server.'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
 <template>
   <div class="min-h-screen bg-white font-inter text-[#171717]">
-    <div class="mx-auto flex min-h-screen max-w-[1440px] items-center justify-center">
+    <div class="mx-auto flex min-h-screen items-center justify-center">
       <div class="flex min-h-screen w-full bg-white">
         <!-- Left -->
         <div class="flex flex-1 items-center justify-center px-8">
@@ -75,7 +118,7 @@ const handleLogin = () => {
 
                   <div class="pt-1">
                     <input
-                      v-model="username"
+                      v-model="identifier"
                       type="text"
                       placeholder="Nhập username"
                       class="h-10 w-full rounded-md border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#5c01d5]"
@@ -135,6 +178,7 @@ const handleLogin = () => {
 
                 <button
                   type="button"
+                  @click="goToForgotPassword"
                   class="text-right text-base leading-6 text-[#404040] cursor-pointer hover:underline"
                 >
                   Quên mật khẩu?
@@ -153,7 +197,9 @@ const handleLogin = () => {
                     : 'cursor-pointer bg-[#5c01d5] hover:opacity-90'
                 "
               >
-                <span class="text-base font-medium leading-6">Login</span>
+                <span class="text-base font-medium leading-6">
+                  {{ isLoading ? 'Logging in...' : 'Login' }}
+                </span>
               </button>
               <div class="pt-2 text-center">
                 <button

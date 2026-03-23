@@ -13,8 +13,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ("username", "email", "password", "first_name", "last_name")
 
     def validate_email(self, value):
-        # Nếu email không bắt buộc unique trong User model,
-        # ta chủ động chặn trùng ở đây để dễ UX.
         if value and User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email đã được sử dụng.")
         return value
@@ -29,7 +27,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data.get("email"),
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
-            is_active=True,  # cho phép đăng nhập ngay
+            is_active=True,  
         )
         user.set_password(validated_data["password"])
         user.save()
@@ -37,11 +35,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    Cho phép đăng nhập bằng username *hoặc* email.
-    Field nhận vẫn là 'username' (để tương thích TokenObtainPairView).
-    """
-
     def validate(self, attrs):
         identifier = attrs.get("username")
         if identifier and "@" in identifier:
@@ -59,7 +52,15 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
 
     def validate_new_password(self, value):
         password_validation.validate_password(value)
         return value
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({
+                "confirm_password": "Passwords do not match."
+            })
+        return attrs

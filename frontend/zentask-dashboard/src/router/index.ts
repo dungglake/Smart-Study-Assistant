@@ -1,11 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import LoginView from '@/views/LoginView.vue'
+import ForgotPasswordView from '@/views/ForgotPasswordView.vue'
+import ForgotPasswordSentView from '@/views/ForgotPasswordSentView.vue'
+import ForgotPasswordResendView from '@/views/ForgotPasswordResendView.vue'
+import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import SmartSchedulerView from '@/views/SmartSchedulerView.vue'
 import AIExtractorView from '@/views/AIExtractorView.vue'
 
-const isAuthenticated = () => localStorage.getItem('isLoggedIn') === 'true'
+const isAuthenticated = () => !!localStorage.getItem('access_token')
 
 const router = createRouter({
     history: createWebHistory(),
@@ -18,6 +22,26 @@ const router = createRouter({
             path: '/login',
             name: 'login',
             component: LoginView,
+        },
+        {
+            path: '/forgot-password',
+            name: 'forgot-password',
+            component: ForgotPasswordView,
+        },
+        {
+            path: '/forgot-password/sent',
+            name: 'forgot-password-sent',
+            component: ForgotPasswordSentView,
+        },
+        {
+            path: '/forgot-password/resend',
+            name: 'forgot-password-resend',
+            component: ForgotPasswordResendView,
+        },
+        {
+            path: '/reset-password',
+            name: 'reset-password',
+            component: ResetPasswordView,
         },
         {
             path: '/dashboard',
