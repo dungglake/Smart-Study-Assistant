@@ -168,61 +168,67 @@ const handleLogin = () => {
         </div>
 
       <!-- RIGHT PANEL -->
-      <div class="relative hidden flex-1 overflow-hidden lg:block">
-        <div class="absolute inset-0 bg-[#E2E6FF]"></div>
-        <div class="absolute inset-0 bg-[linear-gradient(10deg,rgba(207,214,255,0)_8%,rgba(212,183,248,0.35)_72%,rgba(93,5,214,0.45)_92%)]"></div>
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_92%_12%,rgba(93,5,214,0.55)_0%,rgba(93,5,214,0.22)_16%,transparent_34%)]"></div>
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_85%,rgba(212,183,248,0.35)_0%,rgba(207,214,255,0)_60%)]"></div>
+      <div class="relative hidden lg:block flex-1 overflow-hidden">
+        <!-- Background -->
+        <div class="absolute inset-0 bg-[#E2E9FF]"></div>
+        <div class="absolute inset-0 bg-[linear-gradient(18deg,rgba(226,233,255,0)_5%,rgba(212,183,248,0.28)_65%,rgba(93,5,214,0.42)_100%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_88%_14%,rgba(93,5,214,0.45)_0%,rgba(93,5,214,0.16)_18%,transparent_36%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_14%_88%,rgba(212,183,248,0.30)_0%,rgba(207,214,255,0)_55%)]"></div>
 
+        <!-- Decorative shapes -->
         <img
           :src="LoginHeroShape"
           alt="Top shape"
-          class="pointer-events-none absolute left-0 top-0 z-10 w-[180px] lg:w-[240px] xl:w-[420px] object-contain"
+          class="pointer-events-none absolute left-0 top-0 z-10 w-[180px] min-[1440px]:w-[250px] 2xl:w-[320px] object-contain"
         />
 
         <img
           :src="LoginGlowShape"
           alt="Bottom left glow"
-          class="pointer-events-none absolute bottom-0 left-0 z-10 w-[140px] lg:w-[180px] xl:w-[220px] object-contain"
+          class="pointer-events-none absolute bottom-0 left-0 z-10 w-[120px] min-[1440px]:w-[160px] 2xl:w-[220px] object-contain"
         />
 
         <img
           :src="LoginCardShape"
           alt="Right card shape"
-          class="pointer-events-none absolute bottom-[40px] right-0 z-10 w-[170px] lg:w-[210px] xl:w-[340px] object-contain"
+          class="pointer-events-none absolute bottom-[4%] right-0 z-10 w-[100px] min-[1440px]:w-[160px] 2xl:w-[240px] object-contain"
         />
 
-        <!-- Logo -->
-        <div class="absolute z-20 left-[6%] top-[110px] lg:left-[8%] lg:top-[130px] xl:left-[18%] xl:top-[210px]">
-          <div class="flex items-center gap-2 lg:gap-3 xl:gap-4">
-            <img
-              :src="LoginLogoText"
-              alt="Zentask mark"
-              class="h-[68px] lg:h-[88px] xl:h-[120px] w-auto shrink-0 object-contain brightness-0 invert"
-            />
+        <!-- Main content -->
+        <div class="relative z-20 grid h-full grid-cols-12">
+          <div class="col-span-5 flex items-center justify-center translate-x-[66%] translate-y-[-18%] scale-135">
+            <div class="max-w-full">
+              <div class="flex items-center gap-3 min-[1440px]:gap-4">
+                <img
+                  :src="LoginLogoText"
+                  alt="Zentask mark"
+                  class="h-[60px] min-[1440px]:h-[78px] 2xl:h-[104px] w-auto shrink-0 object-contain brightness-0 invert"
+                />
 
-            <div class="flex flex-col justify-center">
-              <img
-                :src="Zentask"
-                alt="Zentask"
-                class="block h-[22px] lg:h-[28px] xl:h-[36px] w-auto"
-              />
-              <img
-                :src="SmartStudyAssistant"
-                alt="Smart Study Assistant"
-                class="mt-2 block h-[14px] lg:h-[17px] xl:h-[22px] w-auto"
-              />
+                <div class="flex flex-col justify-center">
+                  <img
+                    :src="Zentask"
+                    alt="Zentask"
+                    class="block h-[22px] min-[1440px]:h-[28px] 2xl:h-[36px] w-auto"
+                  />
+                  <img
+                    :src="SmartStudyAssistant"
+                    alt="Smart Study Assistant"
+                    class="mt-2 block h-[14px] min-[1440px]:h-[18px] 2xl:h-[22px] w-auto"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Character -->
-        <div class="absolute bottom-0 right-0 z-20">
-          <img
-            :src="LoginHeroImage"
-            alt="Login hero image"
-            class="max-h-[68vh] lg:max-h-[75vh] xl:max-h-[85vh] w-auto object-contain translate-x-[-40px] lg:translate-x-[-20px]"
-          />
+          <!-- Right content / hero -->
+          <div class="col-span-7 flex items-end justify-end pr-[2%] min-[1440px]:pr-[3%] 2xl:pr-[4%]">
+            <img
+              :src="LoginHeroImage"
+              alt="Login hero image"
+              class="relative z-20 h-auto w-auto max-h-[70vh] min-[1440px]:max-h-[76vh] 2xl:max-h-[82vh] max-w-[95%] object-contain"
+            />
+          </div>
         </div>
       </div>
     </div>
