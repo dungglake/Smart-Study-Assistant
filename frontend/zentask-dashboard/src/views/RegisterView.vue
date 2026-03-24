@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { LoginCardShape, LoginGlowShape, LoginHeroImage, LoginHeroShape, LoginLogoText, Logo, SmartStudyAssistant, Zentask,  } from '@/icons'
+import { LoginCardShape, LoginGlowShape, LoginHeroImage, LoginHeroShape, LoginLogoText, Logo, SmartStudyAssistant, Zentask, LoginEyeOnIcon, LoginEyeOffIcon, } from '@/icons'
 
 const router = useRouter()
 
@@ -35,6 +35,14 @@ const isRegisterDisabled = computed(() => {
   )
 })
 
+const togglePassword = () => {
+  showPassword.value = !showPassword.value
+}
+
+const toggleConfirmPassword = () => {
+  showConfirmPassword.value = !showConfirmPassword.value
+}
+
 const handleRegister = async () => {
   errorMessage.value = ''
   successMessage.value = ''
@@ -65,12 +73,12 @@ const handleRegister = async () => {
       } else if (data.detail) {
         errorMessage.value = data.detail
       } else {
-        errorMessage.value = 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.'
+        errorMessage.value = 'Registration failed. Please double-check your information.'
       }
       return
     }
 
-    successMessage.value = data.detail || 'Đăng ký thành công. Vui lòng đăng nhập.'
+    successMessage.value = data.detail || 'Registration successful. Please log in.'
 
     if (stayLoggedIn.value) {
       localStorage.setItem('register_email', email.value.trim().toLowerCase())
@@ -80,7 +88,7 @@ const handleRegister = async () => {
       router.push('/login')
     }, 1200)
   } catch (error) {
-    errorMessage.value = 'Không thể kết nối tới server.'
+    errorMessage.value = 'Cannot connect to server.'
   } finally {
     isLoading.value = false
   }
@@ -98,7 +106,7 @@ const goToForgotPassword = () => {
 <template>
  <div class="w-full min-h-screen relative bg-white overflow-hidden flex items-start justify-start text-left text-num-16 text-gray font-inter">
     <div class="w-full min-h-screen bg-white flex items-stretch max-w-full">
-      <div class="min-h-screen flex-[0.96] overflow-hidden flex flex-col items-center justify-center py-num-0 px-8 gap-8">
+      <div class="min-h-screen flex-[0.94] overflow-hidden flex flex-col items-center justify-center py-num-0 px-8 gap-8">
         <div class="flex w-[450px] flex-col items-start gap-8">
           <div class="flex h-12 w-[244px] flex-col items-start overflow-hidden">
             <div class="flex h-12 w-full flex-col items-center justify-center overflow-hidden">
@@ -158,9 +166,13 @@ const goToForgotPassword = () => {
                   <button
                     type="button"
                     class="text-sm text-[#737373]"
-                    @click="showPassword = !showPassword"
+                    @click="togglePassword"
                   >
-                    {{ showPassword ? 'Hide' : 'Show' }}
+                    <img
+                      :src="showPassword ? LoginEyeOnIcon : LoginEyeOffIcon"
+                      alt="toggle password"
+                      class="h-5 w-5 opacity-70 hover:opacity-100"
+                    />
                   </button>
                 </div>
               </div>
@@ -186,9 +198,13 @@ const goToForgotPassword = () => {
                   <button
                     type="button"
                     class="text-sm text-[#737373]"
-                    @click="showConfirmPassword = !showConfirmPassword"
+                    @click="toggleConfirmPassword"
                   >
-                    {{ showConfirmPassword ? 'Hide' : 'Show' }}
+                    <img
+                      :src="showConfirmPassword ? LoginEyeOnIcon : LoginEyeOffIcon"
+                      alt="toggle password"
+                      class="h-5 w-5 opacity-70 hover:opacity-100"
+                    />
                   </button>
                 </div>
               </div>
@@ -198,7 +214,7 @@ const goToForgotPassword = () => {
               v-if="confirmPassword && !doPasswordsMatch"
               class="text-sm leading-5 text-red-500"
             >
-              Mật khẩu nhập lại không khớp.
+              The password entered again does not match.
             </p>
 
             <p v-if="errorMessage" class="text-sm leading-5 text-red-500">
@@ -218,7 +234,7 @@ const goToForgotPassword = () => {
                     <input
                       v-model="stayLoggedIn"
                       type="checkbox"
-                      class="absolute left-0 top-[3px] h-[18px] w-[18px] rounded border border-[#d4d4d4]"
+                      class="absolute left-0 top-[3px] h-[18px] w-[18px] rounded border border-[#d4d4d4] cursor-pointer"
                     />
                   </span>
                 </span>
@@ -230,7 +246,7 @@ const goToForgotPassword = () => {
             <button
               type="button"
               @click="goToForgotPassword"
-              class="flex-1 text-right leading-6 text-[#404040] hover:underline"
+              class="flex-1 text-right leading-6 text-[#404040] hover:underline cursor-pointer"
             >
               I forgot my password
             </button>
@@ -256,7 +272,7 @@ const goToForgotPassword = () => {
             <button
               type="button"
               @click="goToLogin"
-              class="flex w-full items-center justify-center rounded-md p-3 text-[#5c01d5]"
+              class="flex w-full items-center justify-center rounded-md p-3 text-[#5c01d5] hover:underline transition cursor-pointer"
             >
               <span class="text-base font-medium leading-6">Login</span>
             </button>

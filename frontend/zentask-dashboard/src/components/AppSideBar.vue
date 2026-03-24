@@ -46,7 +46,7 @@ const bottomItems = [
   },
   {
     key: 'support',
-    label: 'Hỗ trợ',
+    label: 'Support',
     icon: InfoCircleIcon,
     external: true,
   },
@@ -64,7 +64,7 @@ const goToPage = (path: string) => {
 </script>
 
 <template>
-  <aside class="flex h-screen w-[280px] flex-col rounded-r-[32px] bg-[#f7f7f8] px-6 py-7">
+  <aside class="flex h-screen w-[280px] flex-col rounded-r-[32px] bg-[#f7f7f8] px-6 py-7 border-r border-gray-200">
     <div class="flex items-center justify-between">
       <img :src="Logo" alt="Zentask Logo" class="h-7 w-auto" />
       <button class="flex h-10 w-10 items-center justify-center rounded-xl pl-3">

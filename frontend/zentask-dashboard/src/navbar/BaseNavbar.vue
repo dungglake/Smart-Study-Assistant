@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { BellIcon } from '@/icons'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import {
+  BellIcon,
+  SettingIcon,
+  TaskSquareIcon,
+  BriefcaseIcon,
+  LogoutIcon,
+  DividerTop,
+  DividerBottom,
+} from '@/icons'
 
 interface Props {
   title: string
@@ -11,6 +21,82 @@ withDefaults(defineProps<Props>(), {
   avatarSrc: 'https://i.pravatar.cc/100?img=12',
   hasNotification: true,
 })
+
+const router = useRouter()
+const showMenu = ref(false)
+const isDropdownOpen = ref(false)
+const isLoggingOut = ref(false)
+
+const openDropdown = () => {
+  isDropdownOpen.value = true
+}
+
+const closeDropdown = () => {
+  isDropdownOpen.value = false
+}
+
+const toggleMenu = () => {
+  showMenu.value = !showMenu.value
+}
+const goToSettings = () => {
+  showMenu.value = false
+  router.push('/settings')
+}
+
+const goToCreateTask = () => {
+  router.push('/create-task')
+}
+
+const goToMyWork = () => {
+  router.push('/my-work')
+}
+
+const handleLogout = async () => {
+  if (isLoggingOut.value) return
+
+  const accessToken = localStorage.getItem('access_token')
+  const refreshToken = localStorage.getItem('refresh_token')
+
+  if (!accessToken || !refreshToken) {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    router.push('/login')
+    return
+  }
+
+  isLoggingOut.value = true
+
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/auth/logout/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        refresh: refreshToken,
+      }),
+    })
+
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      console.error('Logout failed:', data || response.status)
+    }
+
+    router.push('/login')
+  } catch (error) {
+    console.error('Logout error:', error)
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    router.push('/login')
+  } finally {
+    isLoggingOut.value = false
+    isDropdownOpen.value = false
+  }
+}
 </script>
 
 <template>
@@ -24,6 +110,7 @@ withDefaults(defineProps<Props>(), {
     </div>
 
     <div class="flex items-center gap-4">
+      <!-- Bell -->
       <div class="relative h-10 w-10 rounded-full bg-white">
         <img
           :src="BellIcon"
@@ -36,11 +123,87 @@ withDefaults(defineProps<Props>(), {
         />
       </div>
 
-      <img
-        :src="avatarSrc"
-        alt="Avatar"
-        class="h-10 w-10 rounded-full object-cover"
-      />
+      <!-- Avatar + Dropdown -->
+      <div
+        class="relative"
+        @mouseenter="openDropdown"
+        @mouseleave="closeDropdown"
+      >
+        <img
+          :src="avatarSrc"
+          alt="Avatar"
+          class="h-10 w-10 cursor-pointer rounded-full object-cover"
+        />
+
+        <transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-1"
+        >
+          <div
+            v-if="isDropdownOpen"
+            class="absolute right-0 top-[48px] z-50 w-[220px] rounded-xl border border-[#ececec] bg-white p-1 shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
+          >
+            <div class="flex w-full flex-col items-start gap-1 p-1 text-left text-base text-[#404040] font-inter">
+              <!-- Setting -->
+              <button
+                type="button"
+                @click="goToSettings"
+                class="flex w-full items-center gap-2 rounded-num-6 bg-[#f5f5f5] p-2 text-[#171717] hover:bg-[#efefef] cursor-pointer"
+              >
+                <img :src="SettingIcon" class="h-5 w-5 object-contain" alt="Setting" />
+                <div class="leading-6">Setting</div>
+              </button>
+
+              <img :src="DividerTop" class="h-px w-full object-cover" alt="" />
+
+              <!-- Personal tools -->
+              <div class="flex w-full flex-col items-start">
+                <div class="flex w-full items-center justify-between rounded-num-6 p-1 text-center text-xs text-[#737373]">
+                  <div class="leading-4">Personal Tools</div>
+                </div>
+
+                <button
+                  type="button"
+                  @click="goToCreateTask"
+                  class="flex w-full items-center gap-2 rounded-num-6 p-2 hover:bg-[#f7f7f7] cursor-pointer"
+                >
+                  <img :src="TaskSquareIcon" class="h-5 w-5 object-contain" alt="Create Task" />
+                  <div class="leading-6">Create Task</div>
+                </button>
+
+                <button
+                  type="button"
+                  @click="goToMyWork"
+                  class="flex w-full items-center gap-2 rounded-num-6 p-2 hover:bg-[#f7f7f7] cursor-pointer"
+                >
+                  <img :src="BriefcaseIcon" class="h-5 w-5 object-contain" alt="My Work" />
+                  <div class="leading-6">My Work</div>
+                </button>
+              </div>
+
+              <img :src="DividerBottom" class="h-px w-full object-cover" alt="" />
+
+              <!-- Logout -->
+              <div class="flex w-full flex-col items-start">
+                <button
+                  type="button"
+                  @click="handleLogout"
+                  class="flex w-full items-center gap-2 rounded-num-6 p-2 hover:bg-[#f7f7f7] cursor-pointer"
+                >
+                  <img :src="LogoutIcon" class="h-5 w-5 object-contain" alt="Logout" />
+                  <div class="leading-6">
+                    {{ isLoggingOut ? 'Logging out...' : 'Log out' }}
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
     </div>
   </header>
 </template>

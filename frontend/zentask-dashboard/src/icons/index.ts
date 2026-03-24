@@ -26,6 +26,15 @@ import LoginHeroImage from '@/assets/img/2299 1.png'
 import Zentask from '@/assets/icon/Zentask.svg'
 import SmartStudyAssistant from '@/assets/icon/SmartStudyAssistant.svg'
 
+import SettingIcon from '@/assets/icon/iconsax-setting-2-6rfbtf2o-.svg'
+import TaskSquareIcon from '@/assets/icon/iconsax-task-square-rklaywil-.svg'
+import BriefcaseIcon from '@/assets/icon/iconsax-briefcase-vlmvpa3m-.svg'
+import LogoutIcon from '@/assets/icon/iconsax-logout-02-5tgvck5f-.svg'
+import DividerTop from '@/assets/icon/Vector 19.svg'
+import DividerBottom from '@/assets/icon/Vector 18.svg'
+import DropDown from '@/assets/icon/iconsax-arrow-down-02-ajobtnsq-.svg'
+import Edit from '@/assets/icon/iconsax-edit-2-cae2ja4r-.svg'
+
 export {
     Logo,
     SidebarToggle,
@@ -47,4 +56,12 @@ export {
     LoginHeroShape,
     Zentask,
     SmartStudyAssistant,
+    SettingIcon,
+    TaskSquareIcon,
+    BriefcaseIcon,
+    LogoutIcon,
+    DividerTop,
+    DividerBottom,
+    DropDown,
+    Edit,
 }

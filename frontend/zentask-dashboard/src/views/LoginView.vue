@@ -124,7 +124,7 @@ const handleLogin = async () => {
                     <input
                       v-model="identifier"
                       type="text"
-                      placeholder="Nhập username"
+                      placeholder="Enter username"
                       class="h-10 w-full rounded-md border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#5c01d5]"
                     />
                   </div>
@@ -141,7 +141,7 @@ const handleLogin = async () => {
                       <input
                         v-model="password"
                         :type="showPassword ? 'text' : 'password'"
-                        placeholder="Nhập password"
+                        placeholder="Enter password"
                         class="flex-1 bg-transparent text-sm outline-none"
                         @keyup.enter="handleLogin"
                       />
@@ -176,7 +176,7 @@ const handleLogin = async () => {
                     class="h-[18px] w-[18px] rounded border border-[#d4d4d4] cursor-pointer"
                   />
                   <span class="text-base leading-6 text-[#404040]">
-                    Ghi nhớ đăng nhập
+                    Stay logged in 
                   </span>
                 </label>
 
@@ -185,7 +185,7 @@ const handleLogin = async () => {
                   @click="goToForgotPassword"
                   class="text-right text-base leading-6 text-[#404040] cursor-pointer hover:underline"
                 >
-                  Quên mật khẩu?
+                  I forgot my password
                 </button>
               </div>
 
