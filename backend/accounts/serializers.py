@@ -10,10 +10,11 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name")
+        fields = ("email", "password")
 
     def validate_email(self, value):
-        if value and User.objects.filter(email__iexact=value).exists():
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email đã được sử dụng.")
         return value
 
@@ -22,12 +23,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        email = validated_data["email"].strip().lower()
+
         user = User(
-            username=validated_data["username"],
-            email=validated_data.get("email"),
-            first_name=validated_data.get("first_name", ""),
-            last_name=validated_data.get("last_name", ""),
-            is_active=True,  
+            username=email,
+            email=email,
+            is_active=True,
         )
         user.set_password(validated_data["password"])
         user.save()

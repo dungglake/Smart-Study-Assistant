@@ -40,6 +40,10 @@ const isLoginDisabled = computed(() => {
   return !isIdentifierValid.value || !password.value.trim() || isLoading.value
 })
 
+const goToRegister = () => {
+  router.push('/register')
+}
+
 const goToForgotPassword = () => {
   router.push('/forgot-password')
 }
@@ -204,6 +208,7 @@ const handleLogin = async () => {
               <div class="pt-2 text-center">
                 <button
                   type="button"
+                  @click="goToRegister"
                   class="text-base font-medium leading-6 text-[#5c01d5] transition hover:underline hover:opacity-70 cursor-pointer"
                 >
                   Register
