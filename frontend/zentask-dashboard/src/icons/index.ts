@@ -1,5 +1,6 @@
 import Logo from '@/assets/icon/Group 19.svg'
 import SidebarToggle from '@/assets/icon/iconsax-sidebar-left-ocev5wtn-.svg'
+import SidebarToggleOpen from '@/assets/icon/sidebar-right.svg'
 import ArrowUpRight from '@/assets/icon/arrow-up-right.svg'
 
 import HomeIcon from '@/assets/icon/iconsax-home-2-cel97mo9-.svg'
@@ -38,6 +39,7 @@ import Edit from '@/assets/icon/iconsax-edit-2-cae2ja4r-.svg'
 export {
     Logo,
     SidebarToggle,
+    SidebarToggleOpen,
     ArrowUpRight,
     HomeIcon,
     CalendarIcon,
