@@ -36,6 +36,22 @@ import DividerBottom from '@/assets/icon/Vector 18.svg'
 import DropDown from '@/assets/icon/iconsax-arrow-down-02-ajobtnsq-.svg'
 import Edit from '@/assets/icon/iconsax-edit-2-cae2ja4r-.svg'
 
+//Dashboard view
+import Book from '@/assets/icon/iconsax-book-yo6yuqdf-.svg'
+import CalendarDays from '@/assets/icon/iconsax-arrow-up-01-r11u0uti-.svg'
+import ChevronLeft from '@/assets/icon/iconsax-arrow-left-02-bcad6mmi-.svg'
+import ChevronRight from '@/assets/icon/iconsax-arrow-right-02-h79w8iwa-.svg'
+import Clock from '@/assets/icon/iconsax-clock-55mjdsjl-.svg'
+import Document from '@/assets/icon/document.svg'
+import Plus from '@/assets/icon/Group 1.svg'
+import BannerGlow from '@/assets/img/image 5.png'
+import BannerDocs from '@/assets/img/image 2.png'
+
+//SmartScheduler view
+import Calendar from '@/assets/icon/iconsax-calendar-2vr87u8x-.svg'
+import Gantt from '@/assets/icon/iconsax-align-vertically-t8hudru6-.svg'
+import Overview from '@/assets/icon/iconsax-top-bottom-grid-2fw0c8ao-.svg'
+
 export {
     Logo,
     SidebarToggle,
@@ -66,4 +82,16 @@ export {
     DividerBottom,
     DropDown,
     Edit,
+    Book,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Document,
+    Plus,
+    CalendarDays,
+    BannerGlow,
+    BannerDocs,
+    Gantt,
+    Calendar,
+    Overview,
 }

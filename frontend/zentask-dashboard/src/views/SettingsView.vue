@@ -37,16 +37,19 @@ const openFilePicker = () => {
   fileInputRef.value?.click()
 }
 
-const handleAvatarChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
+const handleAvatarChange = (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
 
   const reader = new FileReader()
   reader.onload = () => {
-    avatarPreview.value = String(reader.result || '')
-    localStorage.setItem('settings_avatar_preview', avatarPreview.value)
+    const base64 = reader.result as string
+
+    localStorage.setItem('avatar', base64)
+
+    window.dispatchEvent(new Event('profile-updated'))
   }
+
   reader.readAsDataURL(file)
 }
 
@@ -123,7 +126,6 @@ const fetchProfile = async () => {
       region: region.value,
     }
   } catch {
-    // BE chưa bật thì bỏ qua, không hiện lỗi
     const savedEmail = localStorage.getItem('user_identifier')
     if (savedEmail) {
       email.value = savedEmail
@@ -165,6 +167,9 @@ const saveProfile = async () => {
 
   localStorage.setItem('settings_language', language.value)
   localStorage.setItem('settings_region', region.value)
+  localStorage.setItem('full_name', fullName.value.trim())
+  localStorage.setItem('user_identifier', email.value.trim())
+  window.dispatchEvent(new Event('profile-updated'))
   initialState.value.language = language.value
   initialState.value.region = region.value
 }
