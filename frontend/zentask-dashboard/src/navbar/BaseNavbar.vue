@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   BellIcon,
@@ -17,7 +17,7 @@ interface Props {
   hasNotification?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   avatarSrc: 'https://i.pravatar.cc/100?img=12',
   hasNotification: true,
 })
@@ -32,6 +32,15 @@ const syncAvatar = () => {
   avatar.value = saved || 'https://i.pravatar.cc/100?img=12'
 }
 const displayName = ref('')
+const { title } = props
+
+const welcomeTitle = computed(() => {
+  const name = displayName.value?.trim()
+
+  if (!name) return props.title
+
+  return `Welcome back ${name}!`
+})
 
 const syncDisplayName = () => {
   const savedFullName = localStorage.getItem('full_name')?.trim()
@@ -126,7 +135,7 @@ const handleLogout = async () => {
     <!-- TITLE -->
     <div class="flex items-center">
       <h1 class="leading-6 font-semibold">
-        {{ title }}
+        {{ welcomeTitle }}
       </h1>
     </div>
 
@@ -140,7 +149,7 @@ const handleLogout = async () => {
           class="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 object-contain"
         />
         <div
-          v-if="hasNotification"
+          v-if="props.hasNotification"
           class="absolute right-0 top-0 h-3 w-3 rounded-full border border-white bg-[#5c01d5]"
         />
       </div>
@@ -151,13 +160,6 @@ const handleLogout = async () => {
         @mouseenter="openDropdown"
         @mouseleave="closeDropdown"
       >
-        <!-- NAME -->
-        <div
-          v-if="displayName"
-          class="max-w-[200px] truncate text-[14px] font-medium text-[#171717]"
-        >
-          {{ displayName }}
-        </div>
 
         <!-- AVATAR -->
         <img

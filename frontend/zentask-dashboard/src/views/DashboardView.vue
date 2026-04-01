@@ -125,8 +125,8 @@ function goNextWeek() {
 
 <template>
   <div class="w-full min-h-screen bg-[#f5f5f7] p-8 text-gray-900">
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-      <div class="rounded-3xl bg-white p-4 shadow-sm border border-gray-100">
+    <div class="grid grid-cols-1 xl:grid-cols-[300px_300px_1fr] gap-6 mb-6">
+      <div class="rounded-3xl bg-white p-4 shadow-sm border border-gray-100 h-[120px]">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
             <img :src="Clock" alt="clock icon" class="w-5 h-5" />
@@ -146,7 +146,7 @@ function goNextWeek() {
         </div>
       </div>
 
-      <div class="rounded-3xl bg-white p-4 shadow-sm border border-gray-100">
+      <div class="rounded-3xl bg-white p-4 shadow-sm border border-gray-100 h-[120px]">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
             <img :src="Book" alt="book icon" class="w-5 h-5" />
@@ -166,38 +166,40 @@ function goNextWeek() {
         </div>
       </div>
 
-      <div
-        class="rounded-3xl bg-white border border-violet-200 shadow-[0_0_12px_rgba(92,1,213,0.08)_inset] px-6 py-5 relative overflow-hidden min-h-[140px]"
-      >
+      <div class="relative h-[120px]">
+        <div
+          class="rounded-3xl bg-white border border-violet-200 shadow-[0_0_12px_rgba(92,1,213,0.08)_inset] p-4 relative overflow-hidden h-full"
+        >
+          <div class="relative z-[3] max-w-[70%] translate-y-1">
+            <h2
+              class="text-[18px] font-bold bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent leading-6 whitespace-nowrap"
+            >
+              Convert all documents to Text using AI
+            </h2>
+
+            <button
+              class="mt-6 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition"
+            >
+              Free conversion
+            </button>
+          </div>
+
+          <div
+            class="absolute right-0 top-0 h-full w-[40%] from-white to-violet-50 z-[0]"
+          ></div>
+        </div>
+
         <img
           :src="BannerGlow"
           alt="banner glow"
-          class="absolute right-0 top-0 h-full w-[52%] object-cover pointer-events-none select-none"
+          class="absolute -right-0 -top-3 h-[120%] w-[52%] object-cover pointer-events-none select-none z-[1]"
         />
 
         <img
           :src="BannerDocs"
           alt="document illustration"
-          class="absolute right-6 bottom-4 w-[110px] md:w-[130px] pointer-events-none select-none z-[2]"
+          class="absolute right-3.5 -bottom-5 w-[150px] md:w-[170px] pointer-events-none select-none z-[4]"
         />
-
-        <div class="relative z-[3] max-w-[60%]">
-          <h2
-            class="text-xl font-bold bg-gradient-to-r from-violet-700 to-indigo-500 bg-clip-text text-transparent leading-snug"
-          >
-            Convert all documents to Text using AI
-          </h2>
-
-          <button
-            class="mt-4 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition"
-          >
-            Free conversion
-          </button>
-        </div>
-
-        <div
-          class="absolute right-0 top-0 h-full w-[40%] bg-gradient-to-br from-violet-100 to-indigo-100"
-        ></div>
       </div>
     </div>
 
