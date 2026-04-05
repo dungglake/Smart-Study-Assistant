@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import {
   BellIcon,
   SettingIcon,
@@ -12,42 +12,48 @@ import {
 } from '@/icons'
 
 interface Props {
-  title: string
+  title?: string
   avatarSrc?: string
   hasNotification?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  title: '',
   avatarSrc: 'https://i.pravatar.cc/100?img=12',
   hasNotification: true,
 })
 
 const router = useRouter()
+const route = useRoute()
+
 const isDropdownOpen = ref(false)
 const isLoggingOut = ref(false)
 const avatar = ref('')
+const displayName = ref('')
 
 const syncAvatar = () => {
   const saved = localStorage.getItem('avatar')
   avatar.value = saved || 'https://i.pravatar.cc/100?img=12'
 }
-const displayName = ref('')
-const { title } = props
-
-const welcomeTitle = computed(() => {
-  const name = displayName.value?.trim()
-
-  if (!name) return props.title
-
-  return `Welcome back ${name}!`
-})
 
 const syncDisplayName = () => {
   const savedFullName = localStorage.getItem('full_name')?.trim()
   const savedEmail = localStorage.getItem('user_identifier')?.trim()
-
   displayName.value = savedFullName || savedEmail || ''
 }
+
+const navbarTitle = computed(() => {
+  const propTitle = props.title?.trim()
+  if (propTitle) return propTitle
+
+  const routeTitle = (route.meta.navbarTitle as string)?.trim()
+  if (routeTitle) return routeTitle
+
+  const name = displayName.value?.trim()
+  if (!name) return ''
+
+  return `Welcome back, ${name}!`
+})
 
 const handleProfileUpdated = () => {
   syncDisplayName()
@@ -132,16 +138,13 @@ const handleLogout = async () => {
   <header
     class="flex h-16 w-full items-center justify-between border-b border-[#e5e5e5] px-6 pl-8 text-left font-inter text-base text-[#171717]"
   >
-    <!-- TITLE -->
     <div class="flex items-center">
       <h1 class="leading-6 font-semibold">
-        {{ welcomeTitle }}
+        {{ navbarTitle }}
       </h1>
     </div>
 
-    <!-- RIGHT SIDE -->
     <div class="flex items-center gap-4">
-      <!-- Bell -->
       <div class="relative h-10 w-10 rounded-full bg-white">
         <img
           :src="BellIcon"
@@ -154,21 +157,17 @@ const handleLogout = async () => {
         />
       </div>
 
-      <!-- Avatar + Name + Dropdown -->
       <div
         class="relative flex items-center gap-3"
         @mouseenter="openDropdown"
         @mouseleave="closeDropdown"
       >
-
-        <!-- AVATAR -->
         <img
           :src="avatar"
           alt="Avatar"
           class="h-10 w-10 cursor-pointer rounded-full object-cover"
         />
 
-        <!-- DROPDOWN -->
         <transition
           enter-active-class="transition duration-150 ease-out"
           enter-from-class="opacity-0 translate-y-1"
@@ -182,11 +181,10 @@ const handleLogout = async () => {
             class="absolute right-0 top-[48px] z-50 w-[220px] rounded-xl border border-[#ececec] bg-white p-1 shadow-[0_10px_30px_rgba(0,0,0,0.08)]"
           >
             <div class="flex w-full flex-col items-start gap-1 p-1 text-left text-base text-[#404040] font-inter">
-              <!-- Setting -->
               <button
                 type="button"
                 @click="goToSettings"
-                class="flex w-full items-center gap-2 rounded-num-6 bg-[#f5f5f5] p-2 text-[#171717] hover:bg-[#efefef]"
+                class="flex w-full items-center gap-2 rounded-num-6 bg-[#f5f5f5] p-2 text-[#171717] hover:bg-[#efefef] cursor-pointer"
               >
                 <img :src="SettingIcon" class="h-5 w-5" />
                 <div>Setting</div>
@@ -194,7 +192,6 @@ const handleLogout = async () => {
 
               <img :src="DividerTop" class="h-px w-full" />
 
-              <!-- Tools -->
               <div class="flex w-full flex-col items-start">
                 <div class="p-1 text-xs text-[#737373]">
                   Personal Tools
@@ -202,7 +199,7 @@ const handleLogout = async () => {
 
                 <button
                   @click="goToCreateTask"
-                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7]"
+                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7] cursor-pointer"
                 >
                   <img :src="TaskSquareIcon" class="h-5 w-5" />
                   <div>Create Task</div>
@@ -210,7 +207,7 @@ const handleLogout = async () => {
 
                 <button
                   @click="goToMyWork"
-                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7]"
+                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7] cursor-pointer"
                 >
                   <img :src="BriefcaseIcon" class="h-5 w-5" />
                   <div>My Work</div>
@@ -219,10 +216,9 @@ const handleLogout = async () => {
 
               <img :src="DividerBottom" class="h-px w-full" />
 
-              <!-- Logout -->
               <button
                 @click="handleLogout"
-                class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7]"
+                class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7] cursor-pointer text-[#d00000]"
               >
                 <img :src="LogoutIcon" class="h-5 w-5" />
                 <div>

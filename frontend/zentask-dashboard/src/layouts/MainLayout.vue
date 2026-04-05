@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 
 import AppSidebar from '@/components/AppSidebar.vue'
 import DashboardNavbar from '@/navbar/DashboardNavbar.vue'
-import SmartSchedulerNavbar from '@/navbar/SmartSchedulerNavbar.vue'
 import ExtractorNavbar from '@/navbar/ExtractorNavbar.vue'
 import SettingsNavbar from '@/navbar/SettingsNavbar.vue'
 
@@ -12,7 +11,6 @@ const route = useRoute()
 
 const navbarComponent = computed(() => {
   if (route.path.startsWith('/settings')) return SettingsNavbar
-  if (route.path.startsWith('/scheduler')) return SmartSchedulerNavbar
   if (route.path.startsWith('/extractor')) return ExtractorNavbar
   return DashboardNavbar
 })

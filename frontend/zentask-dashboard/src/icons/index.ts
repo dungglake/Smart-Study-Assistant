@@ -51,6 +51,12 @@ import BannerDocs from '@/assets/img/image 2.png'
 import Calendar from '@/assets/icon/iconsax-calendar-2vr87u8x-.svg'
 import Gantt from '@/assets/icon/iconsax-align-vertically-t8hudru6-.svg'
 import Overview from '@/assets/icon/iconsax-top-bottom-grid-2fw0c8ao-.svg'
+import DropDownWhite from '@/assets/icon/arrow-down-white.svg'
+import DropDownBlack from '@/assets/icon/arrow-down-black.svg'
+import SchedulerBannerDocs from '@/assets/img/image 6.png'
+import RatioDotPurple from '@/assets/icon/Ellipse 4-2.svg'
+import RatioDotYellow from '@/assets/icon/Ellipse 4-1.svg'
+import RatioDotRed from '@/assets/icon/Ellipse 4.svg'
 
 export {
     Logo,
@@ -94,4 +100,10 @@ export {
     Gantt,
     Calendar,
     Overview,
+    DropDownWhite,
+    DropDownBlack,
+    SchedulerBannerDocs,
+    RatioDotPurple,
+    RatioDotYellow,
+    RatioDotRed,
 }

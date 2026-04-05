@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import BaseNavbar from '@/navbar/BaseNavbar.vue'
+import SmartSchedulerNavbar from '@/navbar/SmartSchedulerNavbar.vue'
 </script>
 
 <template>
-    <div class="p-6">
-      <h1 class="text-2xl font-bold">Smart Scheduler</h1>
-    </div>
+  <div class="min-h-screen w-full bg-[#f5f5f5]">
+    <SmartSchedulerNavbar />
+    <router-view />
+  </div>
 </template>

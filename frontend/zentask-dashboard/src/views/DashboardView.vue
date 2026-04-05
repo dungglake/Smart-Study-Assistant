@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import {
   Book,
   CalendarDays,
@@ -14,12 +14,56 @@ import {
 
 const chartFilter = ref("This week");
 const historyFilter = ref("This week");
+const isHistoryDropdownOpen = ref(false);
+const historyDropdownRef = ref(null);
 const hoveredBar = ref(null);
+const activeChartDay = ref("Saturday");
+const chartWrapRef = ref(null);
+const chartRenderWidth = ref(860);
+const isChartDropdownOpen = ref(false);
+
+function selectHistoryFilter(value) {
+  historyFilter.value = value;
+  isHistoryDropdownOpen.value = false;
+}
+
+function selectChartFilter(value) {
+  chartFilter.value = value;
+  isChartDropdownOpen.value = false;
+}
+
+function handleClickOutside(event) {
+  if (!historyDropdownRef.value?.contains(event.target)) {
+    isHistoryDropdownOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
+
+function updateChartRenderWidth() {
+  if (!chartWrapRef.value) return;
+  chartRenderWidth.value = chartWrapRef.value.clientWidth;
+}
+
+onMounted(() => {
+  updateChartRenderWidth();
+  window.addEventListener("resize", updateChartRenderWidth);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateChartRenderWidth);
+});
 
 const summary = ref({
-  studyTime: null, // ví dụ API sau này: "156 hours 45 minutes"
+  studyTime: null,
   studyTimeTrend: "Pending API",
-  subjects: null, // ví dụ API sau này: "6 Subjects"
+  subjects: null,
   subjectTrend: "Pending API"
 });
 
@@ -49,36 +93,43 @@ const visibleDays = computed(() => {
 
   return days;
 });
+const tooltipPosition = computed(() => {
+  if (!hoveredPoint.value) return null;
 
+  const scaleX = chartRenderWidth.value / chartWidth;
+  const scaleY = scaleX; 
+
+  return {
+    left: hoveredPoint.value.x * scaleX,
+    top: (hoveredPoint.value.y - 138) * scaleY,
+  };
+});
 const currentMonthLabel = computed(() => {
-  const d = new Date(selectedDate.value);
+  if (!visibleDays.value.length) return "";
+
+  const middleDay = visibleDays.value[7];
+  const d = new Date(middleDay.fullDate);
+
   return d.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric"
   });
 });
 
+/* ===== MOCK DATA CHO STUDY TIME CHART ===== */
 const chartData = ref([
-  { day: "Mon", fullLabel: "Monday", hours: 3, subjects: [] },
-  { day: "Tue", fullLabel: "Tuesday", hours: 5, subjects: [] },
-  { day: "Wed", fullLabel: "Wednesday", hours: 4, subjects: [] },
-  { day: "Thu", fullLabel: "Thursday", hours: 6, subjects: [] },
-  { day: "Fri", fullLabel: "Friday", hours: 2, subjects: [] },
-  { day: "Sat", fullLabel: "Saturday", hours: 7, subjects: [] },
-  { day: "Sun", fullLabel: "Sunday", hours: 1, subjects: [] }
+  { day: "Monday", short: "Monday", hours: 4, subjects: ["UI/UX Design"] },
+  { day: "Tuesday", short: "Tuesday", hours: 7, subjects: ["UI/UX Design", "Marketing"] },
+  { day: "Wednesday", short: "Wednesday", hours: 5, subjects: ["Database"] },
+  { day: "Thursday", short: "Thursday", hours: 9, subjects: ["Database", "AI Basics"] },
+  { day: "Friday", short: "Friday", hours: 9, subjects: ["AI Basics", "Practice"] },
+  { day: "Saturday", short: "Saturday", hours: 7.5, subjects: ["A", "B"] },
+  { day: "Sunday", short: "Sunday", hours: 0, subjects: [] }
 ]);
 
 const todaySchedule = ref([]);
-// sau này API có thể trả:
-// [
-//   { subject: "Database Administration", time: "2:00 PM - 4:00 PM", type: "Practice" }
-// ]
 
 const documentHistory = ref([]);
-// sau này API có thể trả:
-// [
-//   { title: "UI Creation Process From Wireframe Using AI", date: "01/01/2026 7:00 PM" }
-// ]
 
 const todayLabel = computed(() => {
   const d = new Date(selectedDate.value);
@@ -112,6 +163,74 @@ function goNextWeek() {
   d.setDate(d.getDate() + 7);
   currentBaseDate.value = d;
 }
+
+/* ===== AREA CHART LAYOUT ===== */
+const chartWidth = 760;
+const chartHeight = 430;
+const chartPaddingTop = 40;
+const chartPaddingRight = 36;
+const chartPaddingBottom = 56;
+const chartPaddingLeft = 60;
+const chartMaxY = 12;
+
+const innerWidth = computed(() => chartWidth - chartPaddingLeft - chartPaddingRight);
+const innerHeight = computed(() => chartHeight - chartPaddingTop - chartPaddingBottom);
+
+const xStep = computed(() => innerWidth.value / (chartData.value.length - 1));
+
+const chartPoints = computed(() => {
+  return chartData.value.map((item, index) => {
+    const x = chartPaddingLeft + index * xStep.value;
+    const y =
+      chartPaddingTop +
+      innerHeight.value -
+      (item.hours / chartMaxY) * innerHeight.value;
+
+    return {
+      ...item,
+      x,
+      y,
+    };
+  });
+});
+
+function buildSmoothLinePath(points) {
+  if (!points.length) return "";
+
+  let path = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const current = points[i];
+    const next = points[i + 1];
+    const cx = (current.x + next.x) / 2;
+
+    path += ` C ${cx} ${current.y}, ${cx} ${next.y}, ${next.x} ${next.y}`;
+  }
+
+  return path;
+}
+
+const linePath = computed(() => buildSmoothLinePath(chartPoints.value));
+
+const areaPath = computed(() => {
+  if (!chartPoints.value.length) return "";
+
+  const first = chartPoints.value[0];
+  const last = chartPoints.value[chartPoints.value.length - 1];
+  const baseY = chartPaddingTop + innerHeight.value;
+
+  const smoothLine = buildSmoothLinePath(chartPoints.value);
+
+  return `${smoothLine} L ${last.x} ${baseY} L ${first.x} ${baseY} Z`;
+});
+
+const yTicks = computed(() => Array.from({ length: 13 }, (_, i) => 12 - i));
+
+const hoveredPoint = computed(() => {
+  const targetDay = hoveredBar.value || activeChartDay.value;
+  return chartPoints.value.find(item => item.day === targetDay) || null;
+});
+
 </script>
 
 <style scoped>
@@ -178,7 +297,7 @@ function goNextWeek() {
             </h2>
 
             <button
-              class="mt-6 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition"
+              class="mt-6 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition cursor-pointer"
             >
               Free conversion
             </button>
@@ -206,7 +325,7 @@ function goNextWeek() {
     <div class="rounded-3xl bg-white p-6 shadow-sm border border-gray-100 mb-6">
       <div class="flex items-center justify-center gap-3 mb-6">
         <button
-          class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition"
+          class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition cursor-pointer"
           @click="goPrevWeek"
         >
           <img :src="ChevronLeft" alt="previous" class="w-5 h-5" />
@@ -217,7 +336,7 @@ function goNextWeek() {
         </div>
 
         <button
-          class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition"
+          class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition cursor-pointer"
           @click="goNextWeek"
         >
           <img :src="ChevronRight" alt="next" class="w-5 h-5" />
@@ -228,26 +347,28 @@ function goNextWeek() {
         <div
           v-for="day in visibleDays"
           :key="day.fullDate"
-          class="rounded-full p-2 flex flex-col items-center gap-2 transition cursor-pointer hover:bg-violet-50"
+          class="rounded-full px-2 py-4 flex flex-col items-center gap-2 transition cursor-pointer hover:bg-violet-50"
           :class="[
             day.isMuted ? 'opacity-30' : '',
-            selectedDate === day.fullDate ? 'bg-amber-100' : ''
+            selectedDate === day.fullDate ? 'w-[56px] bg-amber-50' : 'w-[56px]'
           ]"
           @click="selectDate(day.fullDate)"
         >
           <div
-            class="text-sm font-semibold"
+            class="text-sm font-bold"
             :class="day.isSunday ? 'text-red-500' : 'text-gray-700'"
           >
             {{ day.label }}
           </div>
 
           <div
-            class="w-10 h-10 rounded-full flex items-center justify-center text-sm"
+            class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
             :class="
               selectedDate === day.fullDate
                 ? 'bg-violet-600 text-white'
-                : 'bg-gray-100 text-gray-700'
+                : day.isSunday
+                  ? 'bg-gray-100 text-red-500'
+                  : 'bg-gray-100 text-gray-700'
             "
           >
             {{ day.day }}
@@ -261,49 +382,205 @@ function goNextWeek() {
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold">Study time</h3>
 
-          <select
-            v-model="chartFilter"
-            class="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none"
-          >
-            <option>This week</option>
-            <option>This month</option>
-          </select>
+          <div class="relative">
+            <button
+              type="button"
+              @click="isChartDropdownOpen = !isChartDropdownOpen"
+              class="flex h-10 min-w-[128px] items-center justify-between rounded-lg border border-gray-200 bg-white pl-4 pr-3 text-sm text-gray-600 outline-none transition hover:border-violet-300 hover:bg-violet-50 cursor-pointer"
+            >
+              <span>{{ chartFilter }}</span>
+
+              <img
+                :src="ChevronRight"
+                alt="dropdown"
+                class="h-4 w-4 transition"
+                :class="isChartDropdownOpen ? 'rotate-[270deg] opacity-100' : 'rotate-90 opacity-60'"
+              />
+            </button>
+
+            <div
+              v-if="isChartDropdownOpen"
+              class="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[128px] rounded-xl border border-gray-200 bg-white p-1 shadow-lg"
+            >
+              <button
+                type="button"
+                @click="selectChartFilter('This week')"
+                class="flex w-full rounded-lg px-3 py-2 text-left text-sm transition cursor-pointer"
+                :class="
+                  chartFilter === 'This week'
+                    ? 'bg-violet-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-violet-50 hover:text-blue-700'
+                "
+              >
+                This week
+              </button>
+
+              <button
+                type="button"
+                @click="selectChartFilter('This month')"
+                class="flex w-full rounded-lg px-3 py-2 text-left text-sm transition cursor-pointer"
+                :class="
+                  chartFilter === 'This month'
+                    ? 'bg-violet-50 text-blue-700'
+                    : 'text-gray-700 hover:bg-violet-50 hover:text-blue-700'
+                "
+              >
+                This month
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="relative">
-          <div class="grid grid-cols-7 gap-4 items-end h-80">
-            <div
-              v-for="item in chartData"
-              :key="item.day"
-              class="flex flex-col items-center justify-end h-full relative"
+          <div ref="chartWrapRef" class="w-full overflow-x-auto pb-1">
+            <svg
+              :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
+              class=" block w-full min-w-[860px]"
             >
-              <div
-                class="w-full max-w-[54px] rounded-t-2xl bg-gradient-to-t from-violet-600 to-indigo-400 cursor-pointer transition hover:opacity-90 relative"
-                :style="{ height: `${item.hours * 22}px` }"
-                @mouseenter="hoveredBar = item.day"
-                @mouseleave="hoveredBar = null"
-              >
-                <div
-                  v-if="hoveredBar === item.day"
-                  class="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-lg rounded-2xl p-3 text-sm w-48 z-10"
+              <defs>
+                <linearGradient id="studyAreaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.28" />
+                  <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.12" />
+                </linearGradient>
+              </defs>
+
+              <!-- Grid -->
+              <g>
+                <line
+                  v-for="tick in yTicks"
+                  :key="tick"
+                  :x1="chartPaddingLeft"
+                  :x2="chartWidth - chartPaddingRight"
+                  :y1="chartPaddingTop + ((12 - tick) / 12) * innerHeight"
+                  :y2="chartPaddingTop + ((12 - tick) / 12) * innerHeight"
+                  stroke="#d9d9d9"
+                  stroke-dasharray="3 4"
+                  stroke-width="1"
+                />
+              </g>
+
+              <!-- Y labels -->
+              <g>
+                <text
+                  x="8"
+                  y="10"
+                  fill="#171717"
+                  font-size="14"
+                  font-weight="500"
                 >
-                  <div class="inline-flex px-2 py-1 rounded-full bg-violet-100 text-violet-700 font-medium mb-2">
-                    {{ item.fullLabel }}
+                  Hours
+                </text>
+
+                <text
+                  v-for="tick in yTicks"
+                  :key="`label-${tick}`"
+                  x="44"
+                  :y="chartPaddingTop + ((12 - tick) / 12) * innerHeight + 5"
+                  text-anchor="end"
+                  fill="#171717"
+                  font-size="12"
+                >
+                  {{ tick }}
+                </text>
+              </g>
+
+              <!-- Area -->
+              <path
+                :d="areaPath"
+                fill="url(#studyAreaFill)"
+              />
+
+              <!-- Line -->
+              <path
+                :d="linePath"
+                fill="none"
+                stroke="#6d28ff"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Points hover zone -->
+              <g v-for="(point, index) in chartPoints" :key="`hover-zone-${point.day}`">
+                <rect
+                  :x="index === 0 ? chartPaddingLeft : point.x - xStep / 2"
+                  :y="chartPaddingTop"
+                  :width="index === 0 || index === chartPoints.length - 1 ? xStep / 2 : xStep"
+                  :height="innerHeight"
+                  fill="transparent"
+                  class="cursor-pointer"
+                  @mouseenter="hoveredBar = point.day"
+                  @mouseleave="hoveredBar = null"
+                  @click="activeChartDay = point.day"
+                />
+              </g>
+
+              <!-- Active point -->
+              <circle
+                v-if="hoveredPoint"
+                :cx="hoveredPoint.x"
+                :cy="hoveredPoint.y"
+                r="6"
+                fill="#6d28ff"
+                stroke="#ffffff"
+                stroke-width="2"
+              />
+
+              <!-- X labels -->
+              <g>
+                <text
+                  v-for="point in chartPoints"
+                  :key="`x-${point.day}`"
+                  :x="point.x"
+                  :y="chartHeight - 16"
+                  text-anchor="middle"
+                  fill="#171717"
+                  font-size="14"
+                >
+                  {{ point.short }}
+                </text>
+              </g>
+            </svg>
+
+            <!-- Tooltip HTML overlay -->
+            <div
+              v-if="hoveredPoint && tooltipPosition"
+              class="pointer-events-none absolute z-10"
+              :style="{
+                left: `${tooltipPosition.left}px`,
+                top: `${tooltipPosition.top}px`
+              }"
+            >
+              <div class="relative -translate-x-1/2">
+                <div
+                  class="relative w-[185px] rounded-[20px] border border-[#d9d9d9] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(0,0,0,0.10)]"
+                >
+                  <div class="inline-flex rounded-full bg-[#6d28ff] px-4 py-1 text-white text-[12px] font-medium">
+                    {{ hoveredPoint.day }}
                   </div>
-                  <p class="text-gray-800">Study time: {{ item.hours }} hours</p>
-                  <p class="text-gray-800">
-                    Subjects:
-                    {{ item.subjects?.length ? item.subjects.join(", ") : "No data yet" }}
-                  </p>
+
+                  <div class="mt-3 text-[14px] leading-6 text-[#171717]">
+                    <div>Study time: {{ Math.round(hoveredPoint.hours) }} hours</div>
+                    <div>
+                      Subjects:
+                      {{
+                        hoveredPoint.subjects?.length
+                          ? hoveredPoint.subjects.join(" and ")
+                          : "No data yet"
+                      }}
+                    </div>
+                  </div>
+
+                  <div
+                    class="absolute left-1/2 top-full h-4 w-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-[#d9d9d9] bg-white"
+                  ></div>
                 </div>
               </div>
-
-              <div class="mt-3 text-sm text-gray-600">{{ item.day }}</div>
             </div>
           </div>
 
           <div class="mt-5 text-sm text-gray-500">
-            * Visualization is currently using mock/placeholder data because API has not been connected yet.
+            * Visualization is currently using mock data and can be replaced with API data later.
           </div>
         </div>
       </div>
@@ -353,29 +630,68 @@ function goNextWeek() {
       <div class="flex items-center justify-between mb-6">
         <h3 class="text-xl font-semibold">Document Extraction History</h3>
 
-        <select
-          v-model="historyFilter"
-          class="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-600 outline-none"
-        >
-          <option>This week</option>
-          <option>This month</option>
-        </select>
+        <div class="relative" ref="historyDropdownRef">
+          <button
+            type="button"
+            @click="isHistoryDropdownOpen = !isHistoryDropdownOpen"
+            class="flex h-10 min-w-[128px] items-center justify-between rounded-lg border border-gray-200 bg-white pl-3 pr-3 text-sm text-gray-600 outline-none transition hover:border-violet-300 hover:bg-violet-50 cursor-pointer"
+          >
+            <span>{{ historyFilter }}</span>
+
+            <img
+              :src="ChevronRight"
+              alt="dropdown"
+              class="h-4 w-4 transition"
+              :class="isHistoryDropdownOpen ? 'rotate-[270deg] opacity-100' : 'rotate-90 opacity-60'"
+            />
+          </button>
+
+          <div
+            v-if="isHistoryDropdownOpen"
+            class="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[128px] rounded-xl border border-gray-200 bg-white p-1 shadow-lg"
+          >
+            <button
+              type="button"
+              @click="selectHistoryFilter('This week')"
+              class="flex w-full rounded-lg px-3 py-2 text-left text-sm transition cursor-pointer"
+              :class="
+                historyFilter === 'This week'
+                  ? 'bg-violet-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-violet-50 hover:text-blue-700'
+              "
+            >
+              This week
+            </button>
+
+            <button
+              type="button"
+              @click="selectHistoryFilter('This month')"
+              class="flex w-full rounded-lg px-3 py-2 text-left text-sm transition cursor-pointer"
+              :class="
+                historyFilter === 'This month'
+                  ? 'bg-violet-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-violet-50 hover:text-blue-700'
+              "
+            >
+              This month
+            </button>
+          </div>
+        </div>
       </div>
 
       <div v-if="documentHistory.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
         <div
           v-for="(doc, index) in documentHistory"
           :key="index"
-          class="rounded-2xl p-4 text-white flex flex-col justify-between min-h-[170px]"
-          :class="index % 2 === 0 ? 'bg-violet-600' : 'bg-indigo-500'"
+          class="rounded-2xl bg-[#f3ecff] p-4 flex flex-col justify-between min-h-[170px]"
         >
           <div>
-            <h4 class="font-medium line-clamp-2">{{ doc.title }}</h4>
-            <p class="text-sm mt-2 text-white/80">{{ doc.date }}</p>
+            <h4 class="font-medium line-clamp-2 text-[#2f2f2f]">{{ doc.title }}</h4>
+            <p class="text-sm mt-2 text-[#6b7280]">{{ doc.date }}</p>
           </div>
 
           <button
-            class="mt-4 px-3 py-2 rounded-lg bg-gray-900 text-sm font-medium hover:bg-gray-800 transition self-start"
+            class="mt-4 px-3 py-2 rounded-lg bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition self-start"
           >
             View details
           </button>

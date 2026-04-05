@@ -158,7 +158,7 @@ const toggleSidebar = () => {
               :class="activeKey === item.key ? '' : 'opacity-70'"
             />
 
-            <span v-if="!isCollapsed" class="text-[18px] font-medium">
+            <span v-if="!isCollapsed" class="text-[18px] font-medium whitespace-nowrap">
               {{ item.label }}
             </span>
             <span

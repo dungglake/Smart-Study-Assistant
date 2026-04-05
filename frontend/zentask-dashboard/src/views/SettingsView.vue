@@ -45,6 +45,7 @@ const handleAvatarChange = (e: Event) => {
   reader.onload = () => {
     const base64 = reader.result as string
 
+    avatarPreview.value = base64
     localStorage.setItem('avatar', base64)
 
     window.dispatchEvent(new Event('profile-updated'))
@@ -59,7 +60,7 @@ const hasProfileChanges = computed(() => {
     email.value !== initialState.value.email ||
     language.value !== initialState.value.language ||
     region.value !== initialState.value.region ||
-    !!avatarPreview.value !== !!localStorage.getItem('settings_avatar_preview')
+    avatarPreview.value !== (localStorage.getItem('avatar') || '')
   )
 })
 
@@ -87,7 +88,7 @@ const canSave = computed(() => {
 })
 
 const loadLocalSettings = () => {
-  const savedAvatar = localStorage.getItem('settings_avatar_preview')
+  const savedAvatar = localStorage.getItem('avatar')
   const savedLanguage = localStorage.getItem('settings_language')
   const savedRegion = localStorage.getItem('settings_region')
 

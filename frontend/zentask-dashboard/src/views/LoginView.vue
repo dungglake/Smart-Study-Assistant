@@ -74,17 +74,35 @@ const handleLogin = async () => {
         data.detail ||
         data.username?.[0] ||
         data.password?.[0] ||
-        'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'
+        'Login failed. Please check your information.'
       return
     }
 
     localStorage.setItem('access_token', data.access)
     localStorage.setItem('refresh_token', data.refresh)
-    localStorage.setItem('user_identifier', identifier.value.trim())
+
+    const meResponse = await fetch('http://127.0.0.1:8000/api/auth/me/', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${data.access}`,
+      },
+    })
+
+    if (meResponse.ok) {
+      const meData = await meResponse.json()
+
+      localStorage.setItem('full_name', meData.full_name || '')
+      localStorage.setItem('user_identifier', meData.email || identifier.value.trim())
+    } else {
+      localStorage.setItem('user_identifier', identifier.value.trim())
+      localStorage.setItem('full_name', '')
+    }
+
+    window.dispatchEvent(new Event('profile-updated'))
 
     router.push('/dashboard')
   } catch (error) {
-    errorMessage.value = 'Không thể kết nối tới server.'
+    errorMessage.value = 'Can not connect to server.'
   } finally {
     isLoading.value = false
   }
@@ -114,17 +132,16 @@ const handleLogin = async () => {
               </div>
 
               <div class="flex flex-col gap-3 text-[#404040]">
-                <!-- Username -->
                 <div class="flex flex-col gap-1">
                   <label class="text-base font-medium leading-6">
-                    Username
+                    Email
                   </label>
 
                   <div class="pt-1">
                     <input
                       v-model="identifier"
                       type="text"
-                      placeholder="Enter username"
+                      placeholder="Enter email"
                       class="h-10 w-full rounded-md border border-[#d4d4d4] bg-white px-3 text-sm outline-none transition focus:border-[#5c01d5]"
                     />
                   </div>

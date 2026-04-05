@@ -9,6 +9,9 @@ import ResetPasswordView from '@/views/ResetPasswordView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import SmartSchedulerView from '@/views/SmartSchedulerView.vue'
+import SmartSchedulerOverviewView from '@/views/SmartSchedulerOverviewView.vue'
+import SmartSchedulerCalendarView from '@/views/SmartSchedulerCalendarView.vue'
+import SmartSchedulerGanttView from '@/views/SmartSchedulerGanttView.vue'
 import AIExtractorView from '@/views/AIExtractorView.vue'
 
 const isAuthenticated = () => !!localStorage.getItem('access_token')
@@ -21,7 +24,6 @@ const router = createRouter({
             redirect: '/login',
         },
 
-        // ===== AUTH PAGES =====
         {
             path: '/login',
             component: LoginView,
@@ -46,6 +48,7 @@ const router = createRouter({
             path: '/reset-password',
             component: ResetPasswordView,
         },
+
         {
             path: '/',
             component: MainLayout,
@@ -55,21 +58,48 @@ const router = createRouter({
                     path: 'dashboard',
                     name: 'dashboard',
                     component: DashboardView,
+                    meta: { navbarTitle: '' },
                 },
                 {
                     path: 'scheduler',
-                    name: 'scheduler',
                     component: SmartSchedulerView,
+                    meta: { navbarTitle: 'Smart Scheduler' },
+                    children: [
+                        {
+                            path: '',
+                            redirect: { name: 'scheduler-overview' },
+                        },
+                        {
+                            path: 'overview',
+                            name: 'scheduler-overview',
+                            component: SmartSchedulerOverviewView,
+                            meta: { navbarTitle: 'Smart Scheduler' },
+                        },
+                        {
+                            path: 'calendar',
+                            name: 'scheduler-calendar',
+                            component: SmartSchedulerCalendarView,
+                            meta: { navbarTitle: 'Smart Scheduler' },
+                        },
+                        {
+                            path: 'gantt',
+                            name: 'scheduler-gantt',
+                            component: SmartSchedulerGanttView,
+                            meta: { navbarTitle: 'Smart Scheduler' },
+                        },
+                    ],
                 },
                 {
                     path: 'extractor',
                     name: 'extractor',
                     component: AIExtractorView,
+                    meta: { navbarTitle: 'AI Content Extractor' },
                 },
                 {
                     path: 'settings',
                     name: 'settings',
                     component: SettingsView,
+                    meta: { navbarTitle: 'Settings' },
                 },
             ],
         },
