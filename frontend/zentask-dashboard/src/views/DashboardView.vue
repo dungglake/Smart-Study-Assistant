@@ -377,7 +377,7 @@ const hoveredPoint = computed(() => {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6 mb-6">
+    <div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1.15fr] gap-6 mb-6">
       <div class="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold">Study time</h3>
@@ -435,7 +435,7 @@ const hoveredPoint = computed(() => {
           <div ref="chartWrapRef" class="w-full overflow-x-auto pb-1">
             <svg
               :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
-              class=" block w-full min-w-[860px]"
+              class=" block w-full min-w-[760px]"
             >
               <defs>
                 <linearGradient id="studyAreaFill" x1="0" y1="0" x2="0" y2="1">

@@ -54,6 +54,7 @@ const visibleWeekDays = computed(() => {
     }
   })
 })
+
 const scheduleHeaderDays = computed(() =>
   visibleWeekDays.value.map((item) => ({
     ...item,
@@ -75,6 +76,7 @@ const scheduleHeaderDays = computed(() =>
                   : 'Sun',
   }))
 )
+
 const monthYearLabel = computed(() => {
   return currentBaseDate.value.toLocaleDateString('en-US', {
     month: 'long',
@@ -114,7 +116,7 @@ function goNextWeek() {
 }
 
 const hours = Array.from({ length: 17 }, (_, i) => {
-  const hour = i + 7 // 7 AM -> 11 PM
+  const hour = i + 7 
   const suffix = hour < 12 ? 'AM' : 'PM'
   const displayHour = hour === 12 ? 12 : hour > 12 ? hour - 12 : hour
   return `${displayHour}:00 ${suffix}`
@@ -190,7 +192,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
       <!-- Calendar + Today -->
       <div class="col-span-6 flex flex-col gap-8 rounded-[24px] bg-white p-6">
         <div class="flex items-center justify-center gap-3">
-          <button type="button" class="cursor-pointer" @click="goPrevWeek">
+          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goPrevWeek">
             <img :src="ChevronLeft" class="h-5 w-5" alt="prev" />
           </button>
 
@@ -198,7 +200,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             {{ monthYearLabel }}
           </div>
 
-          <button type="button" class="cursor-pointer" @click="goNextWeek">
+          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goNextWeek">
             <img :src="ChevronRight" class="h-5 w-5" alt="next" />
           </button>
         </div>
@@ -212,10 +214,10 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             @click="selectDate(item.fullDate)"
           >
             <div
-              class="inline-flex flex-col items-center gap-2 rounded-[999px] px-2.5 py-4 transition"
+              class="inline-flex flex-col items-center gap-2 rounded-[999px] px-2.5 py-4 transition hover:bg-violet-50"
               :class="[
                 item.isMuted ? 'opacity-25' : '',
-                item.isSelected ? 'bg-[#fff7d6]' : '',
+                item.isSelected ? 'bg-amber-50' : '',
               ]"
             >
               <div class="flex items-center justify-center">
