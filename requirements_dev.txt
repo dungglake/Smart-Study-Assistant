@@ -3,3 +3,4 @@ pytest-django
 pytest-cov
 ortools>=9.10
 pypdf 
+python-docx

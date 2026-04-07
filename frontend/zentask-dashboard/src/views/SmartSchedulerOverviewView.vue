@@ -8,6 +8,7 @@ import {
   RatioDotPurple,
   RatioDotYellow,
   RatioDotRed,
+  ButtonAdd,
 } from '@/icons'
 
 const currentBaseDate = ref(new Date(2026, 0, 1)) // January 1, 2026
@@ -316,12 +317,20 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             <div
               v-for="item in scheduleHeaderDays"
               :key="`${item.fullDate}-${hour}`"
-              class="border-r border-dashed border-b border-[#e9e9e9] last:border-r-0"
+              class="group relative border-r border-dashed border-b border-[#e9e9e9] last:border-r-0"
               :class="item.weekend ? 'bg-[#fcfcfc]' : 'bg-white'"
-            ></div>
+            >
+              <button
+                type="button"
+                class="absolute bottom-1 right-1 z-[2] hidden h-6 w-6 items-center justify-center rounded-md bg-white transition hover:bg-[#f8f5ff] group-hover:flex cursor-pointer"
+                :aria-label="`Add task on ${item.fullDate} at ${hour}`"
+              >
+                <img :src="ButtonAdd" alt="add" class="h-5 w-5 object-contain" />
+              </button>
+            </div>
           </div>
 
-          <div class="absolute inset-0 flex items-center justify-center">
+          <div class=" pointer-events-none absolute inset-0 flex items-center justify-center">
             <div class="rounded-[16px] border border-dashed border-[#e5e5e5] bg-white/90 px-6 py-5 text-center shadow-sm">
               <div class="text-[16px] font-semibold text-[#171717]">
                 No schedule items yet

@@ -57,6 +57,10 @@ import SchedulerBannerDocs from '@/assets/img/image 6.png'
 import RatioDotPurple from '@/assets/icon/Ellipse 4-2.svg'
 import RatioDotYellow from '@/assets/icon/Ellipse 4-1.svg'
 import RatioDotRed from '@/assets/icon/Ellipse 4.svg'
+import ButtonAdd from '@/assets/icon/iconsax-add-square-3kuhrv7g-.svg'
+
+//AI Content Extractor view
+import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
 
 export {
     Logo,
@@ -106,4 +110,6 @@ export {
     RatioDotPurple,
     RatioDotYellow,
     RatioDotRed,
+    ButtonAdd,
+    DocumentUpload,
 }

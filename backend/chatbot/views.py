@@ -1,4 +1,5 @@
 import os
+from turtle import mode
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -26,8 +27,8 @@ class MaterialListCreateView(APIView):
             return Response({"detail": "file is required"}, status=400)
 
         ext = os.path.splitext(file.name)[1].lower().replace(".", "")
-        if ext not in ["pdf", "txt"]:
-            return Response({"detail": "Only pdf/txt supported"}, status=400)
+        if ext not in ["pdf", "txt", "docx", "md"]:
+            return Response({"detail": "Only pdf, txt, docx, md supported"}, status=400)
 
         material = Material.objects.create(
             user=request.user,
@@ -104,8 +105,8 @@ class ChatView(APIView):
             content={"text": user_message}
         )
 
-        chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
-        content = generate_response(mode, user_message, chunks)
+        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+        content = generate_response(mode, user_message, retrieved_chunks)
 
         Message.objects.create(
             conversation=conv,

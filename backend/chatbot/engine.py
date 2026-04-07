@@ -1,6 +1,11 @@
 import re
 from .models import MaterialChunk
 
+OUT_OF_SCOPE_MESSAGE = (
+    "Câu hỏi này nằm ngoài nội dung tài liệu hiện có. "
+    "Mình chỉ hỗ trợ dựa trên tài liệu bạn đã tải lên."
+)
+
 def _tokenize(s: str):
     s = s.lower()
     return set(re.findall(r"[a-zA-Z0-9À-ỹ]+", s))
@@ -12,17 +17,57 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
     scored = []
     for c in chunks:
         t_tokens = _tokenize(c.text[:2000])
-        score = len(q_tokens & t_tokens)
+        overlap = q_tokens & t_tokens
+        score = len(overlap)
         if score > 0:
-            scored.append((score, c))
+            scored.append({
+                "chunk": c,
+                "score": score,
+                "overlap_tokens": list(overlap)
+            })
 
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top = [c for _, c in scored[:k]]
-    return top
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:k]
 
-def generate_response(mode: str, user_message: str, chunks):
-    # MVP chưa gọi AI thật: trả “template” dựa trên chunks
-    # Sau này bạn chỉ thay phần này bằng LLM/local model.
+def is_out_of_scope(retrieved_chunks, min_score: int = 2):
+    """
+    Rule MVP:
+    - không có chunk nào match -> ngoài phạm vi
+    - score cao nhất < min_score -> ngoài phạm vi
+    """
+    if not retrieved_chunks:
+        return True
+
+    top_score = retrieved_chunks[0]["score"]
+    return top_score < min_score
+
+def generate_response(mode: str, user_message: str, retrieved_chunks):
+    if is_out_of_scope(retrieved_chunks):
+        if mode == "FLASHCARD":
+            return {
+                "items": [],
+                "message": OUT_OF_SCOPE_MESSAGE
+            }
+
+        if mode == "QUIZ":
+            return {
+                "items": [],
+                "message": OUT_OF_SCOPE_MESSAGE
+            }
+
+        if mode == "MINDMAP":
+            return {
+                "title": "Mindmap",
+                "children": [],
+                "message": OUT_OF_SCOPE_MESSAGE
+            }
+
+        return {
+            "text": OUT_OF_SCOPE_MESSAGE,
+            "citations": []
+        }
+
+    chunks = [item["chunk"] for item in retrieved_chunks]
     context = "\n\n".join([f"[chunk {c.id}] {c.text[:500]}" for c in chunks])
 
     if mode == "CHAT":
@@ -31,10 +76,12 @@ def generate_response(mode: str, user_message: str, chunks):
             f"{context}\n\n"
             "Bạn muốn mình giải thích sâu hơn phần nào?"
         )
-        return {"text": text, "citations": [{"chunk_id": c.id} for c in chunks]}
+        return {
+            "text": text,
+            "citations": [{"chunk_id": c.id} for c in chunks]
+        }
 
     if mode == "FLASHCARD":
-        # tạo flashcards mock dựa trên heading/ý chính (MVP)
         items = []
         for c in chunks[:3]:
             items.append({
@@ -46,9 +93,21 @@ def generate_response(mode: str, user_message: str, chunks):
         return {"items": items}
 
     if mode == "QUIZ":
-        return {"items": [{"type": "mcq", "question": "MVP quiz placeholder", "choices": ["A","B","C","D"], "answer_index": 0}]}
+        return {
+            "items": [
+                {
+                    "type": "mcq",
+                    "question": "Nội dung chính của tài liệu trong phần liên quan là gì?",
+                    "choices": ["Ý A", "Ý B", "Ý C", "Ý D"],
+                    "answer_index": 0
+                }
+            ]
+        }
 
     if mode == "MINDMAP":
-        return {"title": "Mindmap (MVP)", "children": [{"title": f"Chunk {c.id}", "children": []} for c in chunks]}
+        return {
+            "title": "Mindmap (MVP)",
+            "children": [{"title": f"Chunk {c.id}", "children": []} for c in chunks]
+        }
 
     return {"text": "Unsupported mode"}

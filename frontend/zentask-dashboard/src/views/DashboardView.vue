@@ -377,7 +377,7 @@ const hoveredPoint = computed(() => {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1.15fr] gap-6 mb-6">
+    <div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1.12fr] gap-6 mb-6">
       <div class="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold">Study time</h3>

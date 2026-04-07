@@ -1,8 +1,10 @@
 from pypdf import PdfReader
+from docx import Document
 
 def extract_text_from_file(path: str, file_type: str) -> str:
     file_type = (file_type or "").lower()
-    if file_type == "txt":
+
+    if file_type in ["txt", "md"]:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             return f.read()
 
@@ -13,7 +15,12 @@ def extract_text_from_file(path: str, file_type: str) -> str:
             parts.append(page.extract_text() or "")
         return "\n".join(parts)
 
-    raise ValueError("Unsupported file type. Only pdf/txt supported.")
+    if file_type == "docx":
+        doc = Document(path)
+        parts = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(parts)
+
+    raise ValueError("Unsupported file type. Only pdf/txt/docx/md supported.")
 
 def chunk_text(text: str, max_chars: int = 1200):
     # chunk theo paragraph trước, rồi gom lại cho đủ max_chars
