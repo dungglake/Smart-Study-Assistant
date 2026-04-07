@@ -54,13 +54,29 @@ const visibleWeekDays = computed(() => {
     }
   })
 })
+
 const scheduleHeaderDays = computed(() =>
   visibleWeekDays.value.map((item) => ({
     ...item,
     weekend: item.day === 'SU' || item.day === 'SA',
     active: item.isSelected,
+    shortDay:
+      item.day === 'MO'
+        ? 'Mon'
+        : item.day === 'TU'
+          ? 'Tue'
+          : item.day === 'WE'
+            ? 'Wed'
+            : item.day === 'TH'
+              ? 'Thu'
+              : item.day === 'FR'
+                ? 'Fri'
+                : item.day === 'SA'
+                  ? 'Sat'
+                  : 'Sun',
   }))
 )
+
 const monthYearLabel = computed(() => {
   return currentBaseDate.value.toLocaleDateString('en-US', {
     month: 'long',
@@ -99,10 +115,10 @@ function goNextWeek() {
   selectedDate.value = formatDateLocal(selected)
 }
 
-const hours = Array.from({ length: 24 }, (_, i) => {
-  const hour = i
+const hours = Array.from({ length: 17 }, (_, i) => {
+  const hour = i + 7 
   const suffix = hour < 12 ? 'AM' : 'PM'
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+  const displayHour = hour === 12 ? 12 : hour > 12 ? hour - 12 : hour
   return `${displayHour}:00 ${suffix}`
 })
 </script>
@@ -176,7 +192,7 @@ const hours = Array.from({ length: 24 }, (_, i) => {
       <!-- Calendar + Today -->
       <div class="col-span-6 flex flex-col gap-8 rounded-[24px] bg-white p-6">
         <div class="flex items-center justify-center gap-3">
-          <button type="button" class="cursor-pointer" @click="goPrevWeek">
+          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goPrevWeek">
             <img :src="ChevronLeft" class="h-5 w-5" alt="prev" />
           </button>
 
@@ -184,7 +200,7 @@ const hours = Array.from({ length: 24 }, (_, i) => {
             {{ monthYearLabel }}
           </div>
 
-          <button type="button" class="cursor-pointer" @click="goNextWeek">
+          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goNextWeek">
             <img :src="ChevronRight" class="h-5 w-5" alt="next" />
           </button>
         </div>
@@ -198,10 +214,10 @@ const hours = Array.from({ length: 24 }, (_, i) => {
             @click="selectDate(item.fullDate)"
           >
             <div
-              class="inline-flex flex-col items-center gap-2 rounded-[999px] px-2.5 py-4 transition"
+              class="inline-flex flex-col items-center gap-2 rounded-[999px] px-2.5 py-4 transition hover:bg-violet-50"
               :class="[
                 item.isMuted ? 'opacity-25' : '',
-                item.isSelected ? 'bg-[#fff7d6]' : '',
+                item.isSelected ? 'bg-amber-50' : '',
               ]"
             >
               <div class="flex items-center justify-center">
@@ -252,51 +268,57 @@ const hours = Array.from({ length: 24 }, (_, i) => {
         Schedule
       </div>
 
-      <div class="overflow-hidden rounded-[12px] border border-[#e5e5e5]">
-        <div class="flex h-16 items-center bg-white text-center text-[#404040]">
-          <div class="flex h-full w-[100px] items-center justify-center border-r border-[#e5e5e5] text-xs">
+      <div class="overflow-hidden rounded-[20px] border border-[#e5e5e5] bg-white">
+        <!-- Header -->
+        <div class="grid h-[72px] grid-cols-[110px_repeat(7,minmax(0,1fr))] border-b border-[#e5e5e5]">
+          <div class="flex items-center justify-center border-r border-[#e5e5e5] text-[14px] font-medium text-[#525252]">
             GMT+7
           </div>
 
           <div
             v-for="item in scheduleHeaderDays"
             :key="`${item.day}-${item.date}`"
-            class="flex h-full flex-1 items-center justify-center gap-1 border-r border-[#e5e5e5]"
-            :class="item.weekend ? 'bg-[#f5f5f5]' : ''"
+            class="flex items-center justify-center gap-2 border-r border-[#e5e5e5] last:border-r-0"
           >
-            <b class="leading-6">{{ item.day }}</b>
+            <b
+              class="text-[16px] leading-6"
+              :class="item.day === 'SU' ? 'text-[#ef4444]' : 'text-[#404040]'"
+            >
+              {{ item.shortDay }}
+            </b>
+
             <div
-              class="rounded-full px-2 py-1 text-sm font-medium leading-5"
+              class="flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[16px] font-medium leading-6"
               :class="
                 item.active
                   ? 'bg-[#ede9fe] text-[#5c01d5]'
-                  : 'bg-[#f5f5f5] text-[#404040]'
+                  : item.day === 'SU'
+                    ? 'bg-[#fafafa] text-[#ef4444]'
+                    : 'bg-[#fafafa] text-[#525252]'
               "
             >
-              {{ item.date }}
+              {{ Number(item.date) }}
             </div>
           </div>
         </div>
 
-        <div class="relative h-[960px] overflow-hidden">
+        <!-- Body -->
+        <div class="relative">
           <div
             v-for="hour in hours"
             :key="hour"
-            class="relative flex h-16 items-center text-right text-xs text-[#737373]"
+            class="grid h-20 grid-cols-[110px_repeat(7,minmax(0,1fr))]"
           >
-            <div class="flex h-full w-[100px] items-center justify-center border-r border-[#e5e5e5]">
-              <div class="w-[60px] leading-4">{{ hour }}</div>
+            <div class="flex items-start justify-center border-r border-[#e5e5e5] pt-4 text-[14px] leading-5 text-[#525252]">
+              {{ hour }}
             </div>
 
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5]"></div>
-            <div class="h-full flex-1 border-r border-[#e5e5e5] bg-[#f5f5f5]"></div>
-
-            <div class="absolute left-[100px] right-0 top-1/2 h-px -translate-y-1/2 bg-[#e5e5e5]"></div>
+            <div
+              v-for="item in scheduleHeaderDays"
+              :key="`${item.fullDate}-${hour}`"
+              class="border-r border-dashed border-b border-[#e9e9e9] last:border-r-0"
+              :class="item.weekend ? 'bg-[#fcfcfc]' : 'bg-white'"
+            ></div>
           </div>
 
           <div class="absolute inset-0 flex items-center justify-center">
