@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const API_BASE_URL = 'http://127.0.0.1:8000/api'
+
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api',
+    baseURL: API_BASE_URL,
 })
 
 api.interceptors.request.use((config) => {
@@ -58,6 +60,80 @@ export const sendChatMessage = async (payload: {
 }) => {
     const res = await api.post('/chat/', payload)
     return res.data
+}
+
+type StreamPayload = {
+    conversation_id: number
+    mode: ChatMode
+    message: string
+}
+
+type StreamHandlers = {
+    onStart?: (data: any) => void
+    onToken?: (token: string) => void
+    onDone?: (data: any) => void
+    onError?: (error: Error | string) => void
+}
+
+export const streamChatMessage = async (
+    payload: StreamPayload,
+    handlers: StreamHandlers = {}
+) => {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`${API_BASE_URL}/chat/stream/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+    })
+
+    if (!response.ok || !response.body) {
+        const text = await response.text()
+        throw new Error(text || 'Unable to start stream')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+
+        for (const event of events) {
+            const line = event
+                .split('\n')
+                .find((l) => l.startsWith('data: '))
+
+            if (!line) continue
+
+            const raw = line.replace(/^data:\s*/, '')
+
+            try {
+                const data = JSON.parse(raw)
+
+                if (data.type === 'start') {
+                    handlers.onStart?.(data)
+                } else if (data.type === 'token') {
+                    handlers.onToken?.(data.token || '')
+                } else if (data.type === 'done') {
+                    handlers.onDone?.(data)
+                } else if (data.type === 'error') {
+                    handlers.onError?.(data.detail || 'Streaming error')
+                }
+            } catch (error) {
+                handlers.onError?.(error instanceof Error ? error : 'Invalid stream event')
+            }
+        }
+    }
 }
 
 export default api

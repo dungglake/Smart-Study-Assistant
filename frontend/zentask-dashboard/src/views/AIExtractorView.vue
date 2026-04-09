@@ -8,7 +8,7 @@ import {
   getConversations,
   getMaterialDetail,
   renameConversation,
-  sendChatMessage,
+  streamChatMessage,
   uploadMaterial,
 } from '@/services/extractorApi'
 
@@ -229,33 +229,85 @@ const handleSendMessage = async (payload: {
   message: string
 }) => {
   const text = payload.message.trim()
-  if (!text) return
+  if (!text || isSending.value) return
 
-  const optimisticUserMessage: MessageItem = {
+  isSending.value = true
+
+  const optimisticUserMessage = {
     role: 'user',
     mode: 'CHAT',
     content: { text },
   }
 
-  messages.value = [...messages.value, optimisticUserMessage]
-  isSending.value = true
+  const assistantPlaceholder = {
+    role: 'assistant',
+    mode: 'CHAT',
+    content: { text: '' },
+  }
+
+  messages.value = [
+    ...messages.value,
+    optimisticUserMessage,
+    assistantPlaceholder,
+  ]
 
   try {
-    const res = await sendChatMessage(payload)
+    await streamChatMessage(payload, {
+      onStart(data) {
+        console.log('stream started', data)
+      },
 
-    const newMessages: MessageItem[] = []
-    if (res?.user_message) newMessages.push(res.user_message)
-    if (res?.assistant_message) newMessages.push(res.assistant_message)
+      onToken(token) {
+        const lastIndex = messages.value.length - 1
+        const last = messages.value[lastIndex]
 
-    if (newMessages.length) {
-      messages.value = [
-        ...messages.value.slice(0, -1),
-        ...newMessages,
-      ]
-    }
+        if (!last || last.role !== 'assistant') return
+
+        messages.value[lastIndex] = {
+          ...last,
+          content: {
+            ...last.content,
+            text: (last.content?.text || '') + token,
+          },
+        }
+      },
+
+      onDone(data) {
+        const assistantMessage = data?.assistant_message
+        if (!assistantMessage) return
+
+        const lastIndex = messages.value.length - 1
+        messages.value[lastIndex] = assistantMessage
+      },
+
+      onError(error) {
+        console.error('Stream error:', error)
+
+        const lastIndex = messages.value.length - 1
+        const last = messages.value[lastIndex]
+
+        if (last?.role === 'assistant') {
+          messages.value[lastIndex] = {
+            ...last,
+            content: {
+              text: 'Không thể nhận phản hồi realtime từ server.',
+            },
+          }
+        }
+      },
+    })
   } catch (error) {
-    console.error('Send message failed:', error)
+    console.error('Send stream failed:', error)
+
     messages.value = messages.value.slice(0, -1)
+
+    messages.value.push({
+      role: 'assistant',
+      mode: 'CHAT',
+      content: {
+        text: 'Không thể kết nối tới chat stream.',
+      },
+    })
   } finally {
     isSending.value = false
   }

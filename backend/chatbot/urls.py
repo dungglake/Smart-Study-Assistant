@@ -6,6 +6,7 @@ from .views import (
     ConversationCreateView,
     ConversationDetailView,
     ChatView,
+    ChatStreamView,
     ConversationMessagesView,
 )
 
@@ -17,4 +18,5 @@ urlpatterns = [
     path("conversations/<int:pk>/", ConversationDetailView.as_view()),
     path("conversations/<int:pk>/messages/", ConversationMessagesView.as_view()),
     path("chat/", ChatView.as_view()),
+    path("chat/stream/", ChatStreamView.as_view()),
 ]

@@ -1,5 +1,9 @@
 import os
+import json
+import time
 import threading
+
+from django.http import StreamingHttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -207,7 +211,12 @@ class ChatView(APIView):
         )
 
         retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
-        content = generate_response(mode, user_message, retrieved_chunks)
+        content = generate_response(
+            mode,
+            user_message,
+            retrieved_chunks,
+            material_id=conv.material_id,
+        )
 
         assistant_msg = Message.objects.create(
             conversation=conv,
@@ -223,6 +232,80 @@ class ChatView(APIView):
             },
             status=200,
         )
+
+
+class ChatStreamView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        s = ChatRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+
+        conversation_id = s.validated_data["conversation_id"]
+        mode = s.validated_data["mode"]
+        user_message = s.validated_data["message"]
+
+        conv = Conversation.objects.get(id=conversation_id, user=request.user)
+
+        user_msg = Message.objects.create(
+            conversation=conv,
+            role="user",
+            mode=mode,
+            content={"text": user_message},
+        )
+
+        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+        content = generate_response(
+            mode,
+            user_message,
+            retrieved_chunks,
+            material_id=conv.material_id,
+        )
+
+        full_text = ""
+        if isinstance(content, dict):
+            full_text = content.get("text", "")
+            if not isinstance(full_text, str):
+                full_text = json.dumps(content, ensure_ascii=False)
+        else:
+            full_text = str(content)
+
+        citations = content.get("citations", []) if isinstance(content, dict) else []
+
+        def stream_generator():
+            try:
+                yield f"data: {json.dumps({'type': 'start', 'user_message': MessageSerializer(user_msg).data}, ensure_ascii=False)}\n\n"
+
+                built = ""
+                words = full_text.split()
+                for word in words:
+                    token = word + " "
+                    built += token
+                    yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
+                    time.sleep(0.02)
+
+                final_content = {"text": built.strip(), "citations": citations}
+
+                assistant_msg = Message.objects.create(
+                    conversation=conv,
+                    role="assistant",
+                    mode=mode,
+                    content=final_content,
+                )
+
+                yield f"data: {json.dumps({'type': 'done', 'assistant_message': MessageSerializer(assistant_msg).data}, ensure_ascii=False)}\n\n"
+
+            except Exception as exc:
+                yield f"data: {json.dumps({'type': 'error', 'detail': str(exc)}, ensure_ascii=False)}\n\n"
+
+        response = StreamingHttpResponse(
+            stream_generator(),
+            content_type="text/event-stream",
+        )
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response
 
 
 class ConversationMessagesView(APIView):
