@@ -12,6 +12,8 @@ from .serializers import (
     EmailOrUsernameTokenObtainPairSerializer,
     RequestPasswordResetSerializer,
     PasswordResetConfirmSerializer,
+    ChangePasswordSerializer,
+    ProfileSerializer
 )
 from .utils import make_password_reset_link, get_user_from_uid
 from .tokens import password_reset_token
@@ -95,4 +97,32 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_password)
         user.save(update_fields=["password"])
         return Response({"detail": "Password reset successfully."})
-    
+class MeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        serializer = ProfileSerializer(request.user)
+        return Response(serializer.data)
+
+    def put(self, request):
+        serializer = ProfileSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({
+            "detail": "Profile updated successfully.",
+            "user": serializer.data
+        })
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save(update_fields=["password"])
+
+        return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)

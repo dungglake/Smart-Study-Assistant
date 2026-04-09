@@ -31,7 +31,12 @@ class MaterialChunk(models.Model):
 class Conversation(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conversations")
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="conversations")
+    title = models.CharField(max_length=255, blank=True, default="")
+    summary = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title or f"Conversation {self.id}"
 
 class Message(models.Model):
     ROLE_CHOICES = [("user", "User"), ("assistant", "Assistant")]

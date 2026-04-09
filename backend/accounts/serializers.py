@@ -65,3 +65,53 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
                 "confirm_password": "Passwords do not match."
             })
         return attrs
+
+class ProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ("email", "full_name")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["full_name"] = instance.first_name or ""
+        return data
+
+    def update(self, instance, validated_data):
+        full_name = validated_data.pop("full_name", None)
+        if full_name is not None:
+            instance.first_name = full_name.strip()
+
+        email = validated_data.get("email")
+        if email:
+            email = email.strip().lower()
+            instance.email = email
+            instance.username = email
+
+        instance.save()
+        return instance
+    
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if not user.check_password(attrs["current_password"]):
+            raise serializers.ValidationError({
+                "current_password": "Current password is incorrect."
+            })
+
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({
+                "confirm_password": "Passwords do not match."
+            })
+
+        return attrs

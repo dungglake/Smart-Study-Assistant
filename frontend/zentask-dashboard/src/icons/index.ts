@@ -61,6 +61,17 @@ import ButtonAdd from '@/assets/icon/iconsax-add-square-3kuhrv7g-.svg'
 
 //AI Content Extractor view
 import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
+import SourceItemCheckIcon from '@/assets/icon/source-item-check.svg'
+import SourceItemChatIcon from '@/assets/icon/source-item-chat.svg'
+import AddSourceIcon from '@/assets/icon/add-source-icon.svg'
+import AddCircleIcon from '@/assets/icon/add.svg'
+import AddQuizIcon from '@/assets/icon/add_1.svg'
+import AddMindmapIcon from '@/assets/icon/add_2.svg'
+import FlashcardIcon from '@/assets/icon/flashcard-icon.svg'
+import QuizIcon from '@/assets/icon/quiz-icon.svg'
+import MindmapIcon from '@/assets/icon/mindmap-icon.svg'
+import EditIcon from '@/assets/icon/edit-icon.svg'
+import DeleteIcon from '@/assets/icon/delete-icon.svg'
 
 export {
     Logo,
@@ -112,4 +123,15 @@ export {
     RatioDotRed,
     ButtonAdd,
     DocumentUpload,
+    AddCircleIcon,
+    AddSourceIcon,
+    DeleteIcon,
+    EditIcon,
+    FlashcardIcon,
+    MindmapIcon,
+    QuizIcon,
+    SourceItemChatIcon,
+    SourceItemCheckIcon,
+    AddQuizIcon,
+    AddMindmapIcon,
 }
