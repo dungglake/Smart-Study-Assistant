@@ -25,6 +25,8 @@ class MaterialChunk(models.Model):
     order = models.IntegerField()
     text = models.TextField()
 
+    embedding = models.JSONField(null=True, blank=True)  # 👈 thêm dòng này
+
     class Meta:
         ordering = ["order"]
 

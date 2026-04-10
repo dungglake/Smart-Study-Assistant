@@ -20,6 +20,24 @@ from .serializers import (
 from .utils import extract_text_from_file, chunk_text
 from .engine import retrieve_top_chunks, generate_response, suggest_title_and_summary
 
+try:
+    from .embedding import get_embedding
+except Exception:
+    get_embedding = None
+
+
+def get_recent_history(conversation, limit: int = 6):
+    messages = conversation.messages.order_by("-created_at")[:limit]
+    history = []
+    for msg in reversed(list(messages)):
+        text = ""
+        if isinstance(msg.content, dict):
+            text = msg.content.get("text", "")
+        else:
+            text = str(msg.content)
+        history.append({"role": msg.role, "text": text})
+    return history
+
 
 def process_material(material_id, user):
     material = Material.objects.get(id=material_id, user=user)
@@ -32,33 +50,40 @@ def process_material(material_id, user):
         material.progress = 40
         material.save(update_fields=["progress"])
 
-        chunks = chunk_text(text, max_chars=1200)
-        objs = [
-            MaterialChunk(material=material, order=i, text=ch)
-            for i, ch in enumerate(chunks, start=1)
-        ]
+        try:
+            chunks = chunk_text(text, max_chars=1200, overlap_chars=180)
+        except TypeError:
+            chunks = chunk_text(text, max_chars=1200)
+
+        objs = []
+        for i, ch in enumerate(chunks, start=1):
+            emb = None
+            if get_embedding is not None:
+                try:
+                    emb = get_embedding(ch[:800])
+                except Exception:
+                    emb = None
+
+            objs.append(
+                MaterialChunk(
+                    material=material,
+                    order=i,
+                    text=ch,
+                    embedding=emb,
+                )
+            )
+
         MaterialChunk.objects.bulk_create(objs)
 
         material.progress = 85
         material.save(update_fields=["progress"])
 
-        _, conv_summary = suggest_title_and_summary(material)
-
-        first_response = conv_summary.strip() or f"Đã tải xong tài liệu: {material.title}"
-        title_from_response = first_response[:255]
-
-        conv = Conversation.objects.create(
+        conv_title, _ = suggest_title_and_summary(material)
+        Conversation.objects.create(
             user=user,
             material=material,
-            title=title_from_response,
-            summary=first_response,
-        )
-
-        Message.objects.create(
-            conversation=conv,
-            role="assistant",
-            mode="CHAT",
-            content={"text": first_response},
+            title=(conv_title or material.title)[:255],
+            summary="",
         )
 
         material.status = "DONE"
@@ -210,12 +235,14 @@ class ChatView(APIView):
             content={"text": user_message},
         )
 
+        history = get_recent_history(conv, limit=6)
         retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
         content = generate_response(
             mode,
             user_message,
             retrieved_chunks,
             material_id=conv.material_id,
+            conversation_history=history,
         )
 
         assistant_msg = Message.objects.create(
@@ -255,12 +282,14 @@ class ChatStreamView(APIView):
             content={"text": user_message},
         )
 
+        history = get_recent_history(conv, limit=6)
         retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
         content = generate_response(
             mode,
             user_message,
             retrieved_chunks,
             material_id=conv.material_id,
+            conversation_history=history,
         )
 
         full_text = ""
@@ -273,19 +302,21 @@ class ChatStreamView(APIView):
 
         citations = content.get("citations", []) if isinstance(content, dict) else []
 
+        def chunk_text_for_stream(text: str, size: int = 24):
+            for i in range(0, len(text), size):
+                yield text[i:i + size]
+
         def stream_generator():
             try:
                 yield f"data: {json.dumps({'type': 'start', 'user_message': MessageSerializer(user_msg).data}, ensure_ascii=False)}\n\n"
 
                 built = ""
-                words = full_text.split()
-                for word in words:
-                    token = word + " "
+                for token in chunk_text_for_stream(full_text, size=24):
                     built += token
                     yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
-                    time.sleep(0.02)
+                    time.sleep(0.01)
 
-                final_content = {"text": built.strip(), "citations": citations}
+                final_content = {"text": built, "citations": citations}
 
                 assistant_msg = Message.objects.create(
                     conversation=conv,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
 import {
   AddCircleIcon,
   AddSourceIcon,
@@ -54,8 +55,22 @@ const emit = defineEmits<{
   (e: 'send-message', payload: { conversation_id: number; mode: 'CHAT'; message: string }): void
 }>()
 
+const md = new MarkdownIt({
+  breaks: true,
+  linkify: true,
+})
+
 const fileInput = ref<HTMLInputElement | null>(null)
 const messageInput = ref('')
+const messageListRef = ref<HTMLElement | null>(null)
+
+const normalizeFiles = (files: File[]) => {
+  const allowed = ['pdf', 'txt', 'md', 'docx']
+  return files.filter((file) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() || ''
+    return allowed.includes(ext)
+  })
+}
 
 const pickMore = () => {
   fileInput.value?.click()
@@ -63,17 +78,59 @@ const pickMore = () => {
 
 const onFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
-  const files = Array.from(target.files || [])
+  const files = normalizeFiles(Array.from(target.files || []))
   if (files.length) emit('upload-more', files)
   target.value = ''
 }
 
-const getMessageText = (content: any): string => {
-  if (!content) return ''
-  if (typeof content === 'string') return content
-  if (typeof content?.text === 'string') return content.text
-  if (typeof content?.message === 'string') return content.message
-  return JSON.stringify(content, null, 2)
+const getMessageText = (content: any) => {
+  if (typeof content === 'string') return normalizeMarkdown(content)
+
+  let text = ''
+  if (typeof content?.text === 'string') text = content.text
+  else if (typeof content?.message === 'string') text = content.message
+  else text = JSON.stringify(content, null, 2)
+
+  return normalizeMarkdown(text)
+}
+
+const normalizeMarkdown = (rawText: string) => {
+  return (rawText || '')
+    .replace(/\\n/g, '\n')
+
+    .replace(/\[Source\s*\d+\]/gi, '')
+    .replace(/\(Source\s*\d+\)/gi, '')
+    .replace(/chunk_id\s*=\s*\d+/gi, '')
+    .replace(/order\s*=\s*\d+/gi, '')
+
+    .replace(/^Answer:\s*$/gim, '## Answer:')
+    .replace(/^Supporting points:\s*$/gim, '### Supporting points:')
+    .replace(/^Summary:\s*$/gim, '## Summary:')
+    .replace(/^Explanation:\s*$/gim, '## Explanation:')
+    .replace(/^Key points:\s*$/gim, '## Key points:')
+    .replace(/^Comparison:\s*$/gim, '## Comparison:')
+
+    .replace(/^[•●▪◦]\s*/gim, '- ')
+    .replace(/^\+\s*/gim, '- ')
+
+    .replace(
+      /^(Algorithmic bias|Data-driven bias|Selection bias|Confirmation bias|Implicit bias|Historical data bias|Selection rate bias|Accuracy by group bias|Case\s+\d+.*)$/gim,
+      '- $1'
+    )
+
+    .replace(/^(## .+:\s*)$/gim, '$1\n')
+    .replace(/^(### .+:\s*)$/gim, '$1\n')
+
+    // Đảm bảo mỗi bullet đứng riêng dòng
+    .replace(/(?<!\n)-\s+/g, '\n- ')
+
+    // Gọn dòng trống
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+const renderMessageHtml = (content: any) => {
+  return md.render(getMessageText(content))
 }
 
 const sendCurrentMessage = () => {
@@ -97,6 +154,28 @@ const onInputKeydown = (event: KeyboardEvent) => {
 }
 
 const hasMessages = computed(() => props.messages && props.messages.length > 0)
+
+const scrollToBottom = async () => {
+  await nextTick()
+  const el = messageListRef.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+}
+
+watch(
+  () => props.messages,
+  async () => {
+    await scrollToBottom()
+  },
+  { deep: true }
+)
+
+watch(
+  () => props.selectedConversationId,
+  async () => {
+    await scrollToBottom()
+  }
+)
 </script>
 
 <template>
@@ -136,7 +215,11 @@ const hasMessages = computed(() => props.messages && props.messages.length > 0)
             >
               <div
                 class="w-full rounded-lg flex items-start p-3 gap-2 cursor-pointer transition"
-                :class="item.id === selectedConversationId ? 'bg-[#ede9fe]' : 'bg-transparent hover:bg-[#f3f4f6]'"
+                :class="
+                  item.id === selectedConversationId
+                    ? 'bg-[#ede9fe]'
+                    : 'bg-transparent hover:bg-[#f3f4f6]'
+                "
                 @click="$emit('select-conversation', item.id)"
               >
                 <div class="w-6 h-6 shrink-0 flex items-center justify-center">
@@ -242,7 +325,10 @@ const hasMessages = computed(() => props.messages && props.messages.length > 0)
           </div>
 
           <div class="self-stretch flex-1 flex flex-col items-start justify-between gap-4 text-[14px]">
-            <div class="self-stretch flex-1 overflow-y-auto flex flex-col items-start pt-0 px-0 pb-5 gap-4">
+            <div
+              ref="messageListRef"
+              class="self-stretch flex-1 overflow-y-auto flex flex-col items-start pt-0 px-0 pb-5 gap-4"
+            >
               <template v-if="hasMessages">
                 <div
                   v-for="(message, index) in messages"
@@ -251,22 +337,41 @@ const hasMessages = computed(() => props.messages && props.messages.length > 0)
                   :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
                 >
                   <div
-                    class="max-w-[760px] rounded-xl px-4 py-3 leading-6 whitespace-pre-line"
+                    class="max-w-[760px] rounded-xl px-4 py-3 leading-6 break-words"
                     :class="
                       message.role === 'user'
-                        ? 'bg-[#e9e7f9] text-[#111827] rounded-br-none'
+                        ? 'bg-[#e9e7f9] text-[#111827] rounded-br-none whitespace-pre-wrap'
                         : 'bg-transparent text-[#374151]'
                     "
                   >
-                    {{ getMessageText(message.content) }}
+                    <div
+                      v-if="message.role === 'assistant'"
+                      class="max-w-none whitespace-normal leading-6
+                            [&_p]:my-1
+                            [&_ul]:my-2
+                            [&_ul]:list-disc
+                            [&_ul]:pl-5
+                            [&_ol]:my-2
+                            [&_ol]:list-decimal
+                            [&_ol]:pl-5
+                            [&_li]:my-0.5
+                            [&_h2]:text-[16px]
+                            [&_h2]:font-semibold
+                            [&_h2]:mb-2
+                            [&_h3]:text-[14px]
+                            [&_h3]:font-semibold
+                            [&_h3]:mt-3
+                            [&_h3]:mb-1"
+                      v-html="renderMessageHtml(message.content)"
+                    />
+                    <template v-else>
+                      {{ getMessageText(message.content) }}
+                    </template>
                   </div>
                 </div>
               </template>
 
-              <div
-                v-else
-                class="w-full max-w-[760px] leading-6 text-[#374151]"
-              >
+              <div v-else class="w-full max-w-[760px] leading-6 text-[#374151]">
                 Upload source để bot tạo phản hồi đầu tiên từ tài liệu. Sau đó bạn có thể hỏi tiếp ngay trong ô bên dưới.
               </div>
             </div>

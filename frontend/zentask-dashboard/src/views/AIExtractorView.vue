@@ -43,39 +43,46 @@ const loadingMessages = ref(false)
 const processingMaterialIds = ref<number[]>([])
 const pollingTimer = ref<number | null>(null)
 
-const selectedConversation = computed(() =>
-  conversations.value.find((item) => item.id === selectedConversationId.value) || null
+const selectedConversation = computed(
+  () => conversations.value.find((item) => item.id === selectedConversationId.value) || null
 )
 
 const currentTitle = computed(() => selectedConversation.value?.title || 'AI Content Extractor')
 const currentSummary = computed(() => selectedConversation.value?.summary || '')
 
 const loadConversations = async (preferLatest = false) => {
-  const data = await getConversations()
-  conversations.value = (data || []).map((item: ConversationItem) => ({
-    ...item,
-    menuOpen: false,
-  }))
+  try {
+    const data = await getConversations()
+    conversations.value = (data || []).map((item: ConversationItem) => ({
+      ...item,
+      menuOpen: false,
+    }))
 
-  if (!conversations.value.length) {
+    if (!conversations.value.length) {
+      selectedConversationId.value = null
+      messages.value = []
+      return
+    }
+
+    if (preferLatest) {
+      selectedConversationId.value = conversations.value[0].id
+      return
+    }
+
+    if (
+      selectedConversationId.value &&
+      conversations.value.some((item) => item.id === selectedConversationId.value)
+    ) {
+      return
+    }
+
+    selectedConversationId.value = conversations.value[0].id
+  } catch (error) {
+    console.error('Load conversations failed:', error)
+    conversations.value = []
     selectedConversationId.value = null
     messages.value = []
-    return
   }
-
-  if (preferLatest) {
-    selectedConversationId.value = conversations.value[0].id
-    return
-  }
-
-  if (
-    selectedConversationId.value &&
-    conversations.value.some((item) => item.id === selectedConversationId.value)
-  ) {
-    return
-  }
-
-  selectedConversationId.value = conversations.value[0].id
 }
 
 const loadMessages = async (conversationId: number) => {
@@ -233,23 +240,19 @@ const handleSendMessage = async (payload: {
 
   isSending.value = true
 
-  const optimisticUserMessage = {
+  const optimisticUserMessage: MessageItem = {
     role: 'user',
     mode: 'CHAT',
     content: { text },
   }
 
-  const assistantPlaceholder = {
+  const assistantPlaceholder: MessageItem = {
     role: 'assistant',
     mode: 'CHAT',
     content: { text: '' },
   }
 
-  messages.value = [
-    ...messages.value,
-    optimisticUserMessage,
-    assistantPlaceholder,
-  ]
+  messages.value = [...messages.value, optimisticUserMessage, assistantPlaceholder]
 
   try {
     await streamChatMessage(payload, {
@@ -266,8 +269,8 @@ const handleSendMessage = async (payload: {
         messages.value[lastIndex] = {
           ...last,
           content: {
-            ...last.content,
-            text: (last.content?.text || '') + token,
+            ...(last.content || {}),
+            text: ((last.content && last.content.text) || '') + token,
           },
         }
       },
@@ -299,27 +302,31 @@ const handleSendMessage = async (payload: {
   } catch (error) {
     console.error('Send stream failed:', error)
 
-    messages.value = messages.value.slice(0, -1)
-
-    messages.value.push({
-      role: 'assistant',
-      mode: 'CHAT',
-      content: {
-        text: 'Không thể kết nối tới chat stream.',
+    const trimmed = messages.value.slice(0, -1)
+    messages.value = [
+      ...trimmed,
+      {
+        role: 'assistant',
+        mode: 'CHAT',
+        content: { text: 'Không thể kết nối tới chat stream.' },
       },
-    })
+    ]
   } finally {
     isSending.value = false
   }
 }
 
-watch(selectedConversationId, async (id) => {
-  if (!id) {
-    messages.value = []
-    return
-  }
-  await loadMessages(id)
-}, { immediate: true })
+watch(
+  selectedConversationId,
+  async (id) => {
+    if (!id) {
+      messages.value = []
+      return
+    }
+    await loadMessages(id)
+  },
+  { immediate: true }
+)
 
 onMounted(async () => {
   await loadConversations(false)
