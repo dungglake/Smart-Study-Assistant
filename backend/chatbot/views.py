@@ -18,7 +18,7 @@ from .serializers import (
     MessageSerializer,
 )
 from .utils import extract_text_from_file, chunk_text
-from .engine import retrieve_top_chunks, generate_response, suggest_title_and_summary
+from .engine import retrieve_for_chat, generate_response, suggest_title_and_summary
 
 try:
     from .embedding import get_embedding
@@ -236,7 +236,7 @@ class ChatView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
-        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+        retrieved_chunks = retrieve_for_chat(conv.material_id, user_message, k=4, conversation_history=history)
         content = generate_response(
             mode,
             user_message,
@@ -283,7 +283,7 @@ class ChatStreamView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
-        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+        retrieved_chunks = retrieve_for_chat(conv.material_id, user_message, k=4, conversation_history=history)
         content = generate_response(
             mode,
             user_message,

@@ -45,6 +45,25 @@ COMPARE_QUERIES = {
     "compare", "so sanh", "so sánh", "difference", "khac nhau", "khác nhau"
 }
 
+OVERVIEW_QUERIES = {
+    "summary this file", "summarize this file", "document summary", "overview",
+    "main topic", "main idea", "what is this file about", "what is this document about",
+    "file này nói về gì", "tài liệu này nói về gì", "chu de chinh", "chủ đề chính",
+    "noi dung chinh", "nội dung chính", "ý chính", "y chinh", "key points",
+    "main points", "tóm tắt", "tom tat"
+}
+
+FACTUAL_PREFIXES = (
+    "how many", "what are", "which", "list", "name", "give me", "show me",
+    "bao nhieu", "có bao nhiêu", "liet ke", "liệt kê", "kể tên"
+)
+
+FOLLOW_UP_REFERENCES = {
+    "that", "that part", "that section", "the above", "above", "it", "this part",
+    "this section", "those points", "the point above", "the previous part",
+    "phần đó", "phần trên", "ý trên", "cái đó", "nội dung đó", "đoạn đó", "mục đó",
+}
+
 GENERIC_STOP_LINES = [
     "page ", "trang ", "copyright", "all rights reserved"
 ]
@@ -88,11 +107,14 @@ def _is_follow_up_document_query(normalized: str) -> bool:
     if _contains_any(normalized, FOLLOW_UP_EXPLAIN_QUERIES):
         return True
 
+    if any(ref in normalized for ref in FOLLOW_UP_REFERENCES):
+        return True
+
     tokens = set(_tokenize(normalized))
     hints = {
         "sau", "hon", "hơn", "ky", "kỹ", "chi", "tiet", "tiết",
         "ro", "rõ", "mo", "mở", "rong", "rộng", "tai", "lieu",
-        "tài", "liệu", "do", "đó", "phan", "phần"
+        "tài", "liệu", "do", "đó", "phan", "phần", "tren", "trên"
     }
     return len(tokens & hints) >= 2
 
@@ -110,6 +132,25 @@ def _query_type(user_message: str) -> str:
     if _contains_any(q, COMPARE_QUERIES):
         return "compare"
     return "qa"
+
+
+def detect_overview_query(user_message: str) -> bool:
+    q = _normalize_text(user_message)
+    if _contains_any(q, OVERVIEW_QUERIES):
+        return True
+
+    broad_patterns = [
+        "this file", "this document", "the uploaded document",
+        "tai lieu nay", "tài liệu này", "file nay", "file này",
+    ]
+    return any(p in q for p in broad_patterns) and _query_type(user_message) in {
+        "summary", "explain", "keypoints"
+    }
+
+
+def detect_factual_query(user_message: str) -> bool:
+    q = _normalize_text(user_message)
+    return q.startswith(FACTUAL_PREFIXES)
 
 
 def _looks_like_heading(line: str) -> bool:
@@ -227,7 +268,118 @@ def _keyword_score(query: str, cleaned_text: str) -> float:
     return score
 
 
+def _heading_bonus(chunk_text: str) -> float:
+    lines = [ln.strip() for ln in (chunk_text or "").splitlines() if ln.strip()]
+    if not lines:
+        return 0.0
+
+    first = lines[0]
+    if _looks_like_heading(first):
+        return 1.5
+    if len(lines) >= 2 and _looks_like_heading(lines[1]):
+        return 1.0
+    return 0.0
+
+
+def _prepare_chunk_record(chunk, score: float, semantic_score: float = 0.0, keyword_score: float = 0.0):
+    return {
+        "chunk": chunk,
+        "score": float(score),
+        "semantic_score": float(semantic_score),
+        "keyword_score": float(keyword_score),
+    }
+
+
+def retrieve_document_overview_chunks(material_id: int, limit: int = 6):
+    chunks = MaterialChunk.objects.filter(material_id=material_id).only("id", "text", "order").order_by("order")[:limit]
+    return [_prepare_chunk_record(c, score=999.0) for c in chunks]
+
+
+def _extract_reference_focus(conversation_history) -> str:
+    """
+    Try to recover the topic of a follow-up question from recent conversation.
+    Priority:
+    1. previous user question
+    2. previous assistant heading
+    3. first assistant bullet
+    """
+    if not conversation_history:
+        return ""
+
+    previous_user = ""
+    previous_assistant = ""
+
+    for item in reversed(conversation_history):
+        role = item.get("role")
+        text = (item.get("text") or "").strip()
+        if not text:
+            continue
+        if role == "user" and not previous_user:
+            previous_user = text
+        elif role == "assistant" and not previous_assistant:
+            previous_assistant = text
+        if previous_user and previous_assistant:
+            break
+
+    if previous_user:
+        normalized_prev = _normalize_text(previous_user)
+        if not _is_follow_up_document_query(normalized_prev):
+            return previous_user
+
+    if previous_assistant:
+        for line in previous_assistant.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("## ") or line.startswith("### "):
+                return re.sub(r"^#{2,3}\s*", "", line).strip(" :")
+        for line in previous_assistant.splitlines():
+            line = line.strip()
+            if line.startswith("- "):
+                return line[2:].strip()
+
+    return previous_user or ""
+
+
+def rewrite_user_query(user_message: str, conversation_history=None) -> str:
+    """
+    Deterministic query rewriting:
+    - keep broad overview queries as-is
+    - rewrite follow-up references using recent conversation
+    - preserve direct factual queries
+    """
+    user_message = (user_message or "").strip()
+    if not user_message:
+        return ""
+
+    normalized = _normalize_text(user_message)
+
+    if detect_overview_query(user_message):
+        return user_message
+
+    if detect_factual_query(user_message) and not _is_follow_up_document_query(normalized):
+        return user_message
+
+    if not _is_follow_up_document_query(normalized):
+        return user_message
+
+    focus = _extract_reference_focus(conversation_history)
+    if not focus:
+        return user_message
+
+    if _query_type(user_message) == "compare":
+        return f"Compare this follow-up topic with the previous referenced topic: {focus}. User request: {user_message}"
+
+    if detect_factual_query(user_message):
+        return f"Answer this factual question about the previously referenced topic '{focus}': {user_message}"
+
+    return f"About the topic '{focus}', {user_message}"
+
+
 def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
+    if detect_overview_query(query):
+        return retrieve_document_overview_chunks(material_id, limit=max(6, k))
+
     chunks = MaterialChunk.objects.filter(material_id=material_id).only("id", "text", "embedding", "order")
     if not query.strip():
         return []
@@ -241,7 +393,8 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
 
     scored = []
     for c in chunks:
-        cleaned = clean_chunk_text((c.text or "")[:3000])
+        raw_text = (c.text or "")[:3000]
+        cleaned = clean_chunk_text(raw_text)
         if not cleaned:
             continue
 
@@ -250,21 +403,74 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
         if query_embedding is not None and getattr(c, "embedding", None):
             semantic_score = _cosine_similarity(query_embedding, c.embedding)
 
+        heading_bonus = _heading_bonus(raw_text)
+        density_penalty = -0.2 if len(cleaned) > 2200 else 0.0
+
         if query_embedding is not None:
-            score = semantic_score * 10.0 + keyword_score * 0.35
+            score = semantic_score * 10.0 + keyword_score * 0.35 + heading_bonus + density_penalty
         else:
-            score = keyword_score
+            score = keyword_score + heading_bonus + density_penalty
 
         if score > 0:
-            scored.append({
-                "chunk": c,
-                "score": score,
-                "semantic_score": semantic_score,
-                "keyword_score": keyword_score,
-            })
+            scored.append(_prepare_chunk_record(
+                c,
+                score=score,
+                semantic_score=semantic_score,
+                keyword_score=keyword_score,
+            ))
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:k]
+
+
+def expand_with_neighbor_chunks(material_id: int, retrieved_chunks, window: int = 1, limit: int = 8):
+    if not retrieved_chunks:
+        return []
+
+    base_by_id = {item["chunk"].id: item for item in retrieved_chunks}
+    expanded_orders = set()
+
+    for item in retrieved_chunks:
+        chunk = item["chunk"]
+        order = getattr(chunk, "order", None)
+        if order is None:
+            continue
+        for offset in range(-window, window + 1):
+            if order + offset > 0:
+                expanded_orders.add(order + offset)
+
+    neighbors = MaterialChunk.objects.filter(
+        material_id=material_id,
+        order__in=expanded_orders,
+    ).only("id", "text", "embedding", "order").order_by("order")
+
+    results = []
+    seen_ids = set()
+
+    for chunk in neighbors:
+        if chunk.id in seen_ids:
+            continue
+        if chunk.id in base_by_id:
+            results.append(base_by_id[chunk.id])
+        else:
+            results.append(_prepare_chunk_record(chunk, score=0.75))
+        seen_ids.add(chunk.id)
+
+    results.sort(key=lambda x: (getattr(x["chunk"], "order", 10**9), -x["score"]))
+    return results[:limit]
+
+
+def retrieve_for_chat(material_id: int, query: str, k: int = 4, conversation_history=None):
+    rewritten_query = rewrite_user_query(query, conversation_history=conversation_history)
+    primary = retrieve_top_chunks(material_id, rewritten_query, k=k)
+    if not primary:
+        return []
+
+    if detect_overview_query(rewritten_query):
+        return primary[:max(6, k)]
+
+    expanded = expand_with_neighbor_chunks(material_id, primary, window=1, limit=max(6, k + 2))
+    return expanded if expanded else primary
 
 
 def is_out_of_scope(retrieved_chunks, min_score: float = 0.6):
@@ -298,28 +504,33 @@ def suggest_title_and_summary(material):
     return title[:255], summary[:900]
 
 
-def _format_history(conversation_history) -> str:
-    if not conversation_history:
-        return ""
-    parts = []
-    for item in conversation_history[-6:]:
-        role = item.get("role", "user")
-        text = (item.get("text") or "").strip()
-        if text:
-            parts.append(f"{role}: {text}")
-    return "\n".join(parts)
-
-
 def _prepare_chunks_for_llm(retrieved_chunks):
     prepared = []
+    seen_ids = set()
+
     for item in retrieved_chunks:
         chunk = item["chunk"]
+        if chunk.id in seen_ids:
+            continue
         prepared.append({
             "chunk": chunk,
             "score": item.get("score", 0),
             "text": clean_chunk_text(chunk.text),
         })
+        seen_ids.add(chunk.id)
+
     return prepared
+
+
+def resolve_follow_up_for_llm(user_message: str, conversation_history=None) -> str:
+    """
+    Make the user question more explicit for answer generation as well.
+    """
+    rewritten = rewrite_user_query(user_message, conversation_history=conversation_history)
+    if rewritten == user_message:
+        return user_message
+
+    return f"Original user request: {user_message}\nResolved request: {rewritten}"
 
 
 def _generate_llm_chat(
@@ -332,24 +543,32 @@ def _generate_llm_chat(
     del mode, material_id  # reserved for future extension
 
     query_type = _query_type(user_message)
-    normalized = _normalize_text(user_message)
     llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
+    effective_question = resolve_follow_up_for_llm(user_message, conversation_history=conversation_history)
 
-    # Tạm thời giữ history để đồng bộ API; có thể ghép sâu hơn vào local_llm sau.
-    _ = _format_history(conversation_history)
+    if detect_factual_query(user_message):
+        return {
+            "text": generate_llm_answer(
+                effective_question,
+                llm_chunks,
+                query_type="qa",
+                conversation_history=None,
+            ),
+            "citations": [],
+        }
 
     if query_type == "summary":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="summary"), "citations": []}
+        return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="summary", conversation_history=conversation_history), "citations": []}
     if query_type == "explain":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="explain"), "citations": []}
+        return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="explain", conversation_history=conversation_history), "citations": []}
     if query_type == "keypoints":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="keypoints"), "citations": []}
+        return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="keypoints", conversation_history=conversation_history), "citations": []}
     if query_type == "compare":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="compare"), "citations": []}
-    if _is_follow_up_document_query(normalized):
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="explain"), "citations": []}
+        return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="compare", conversation_history=conversation_history), "citations": []}
+    if _is_follow_up_document_query(_normalize_text(user_message)):
+        return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="explain", conversation_history=conversation_history), "citations": []}
 
-    return {"text": generate_llm_answer(user_message, llm_chunks, query_type="qa"), "citations": []}
+    return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="qa", conversation_history=conversation_history), "citations": []}
 
 
 def generate_response(
@@ -378,7 +597,7 @@ def generate_response(
             material_id=material_id,
             conversation_history=conversation_history,
         )
-        content["citations"] = [{"chunk_id": c.id} for c in chunks]
+        content["citations"] = [{"chunk_id": c.id, "order": getattr(c, "order", None)} for c in chunks]
         return content
 
     if mode == "FLASHCARD":

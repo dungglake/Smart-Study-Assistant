@@ -111,20 +111,18 @@ const normalizeMarkdown = (rawText: string) => {
     .replace(/^Comparison:\s*$/gim, '## Comparison:')
 
     .replace(/^[•●▪◦]\s*/gim, '- ')
+
+    .replace(/[•●▪◦]+\s*/g, '\n- ')
+
     .replace(/^\+\s*/gim, '- ')
 
-    .replace(
-      /^(Algorithmic bias|Data-driven bias|Selection bias|Confirmation bias|Implicit bias|Historical data bias|Selection rate bias|Accuracy by group bias|Case\s+\d+.*)$/gim,
-      '- $1'
-    )
+    .replace(/\s*Purpose:\s*/gi, '\n- Purpose: ')
 
     .replace(/^(## .+:\s*)$/gim, '$1\n')
     .replace(/^(### .+:\s*)$/gim, '$1\n')
 
-    // Đảm bảo mỗi bullet đứng riêng dòng
-    .replace(/(?<!\n)-\s+/g, '\n- ')
+    .replace(/^\-\s*$/gim, '')
 
-    // Gọn dòng trống
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
