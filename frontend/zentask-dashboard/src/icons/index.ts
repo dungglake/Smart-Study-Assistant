@@ -49,15 +49,14 @@ import BannerDocs from '@/assets/img/image 2.png'
 
 //SmartScheduler view
 import Calendar from '@/assets/icon/iconsax-calendar-2vr87u8x-.svg'
-import Gantt from '@/assets/icon/iconsax-align-vertically-t8hudru6-.svg'
 import Overview from '@/assets/icon/iconsax-top-bottom-grid-2fw0c8ao-.svg'
 import DropDownWhite from '@/assets/icon/arrow-down-white.svg'
 import DropDownBlack from '@/assets/icon/arrow-down-black.svg'
-import SchedulerBannerDocs from '@/assets/img/image 6.png'
 import RatioDotPurple from '@/assets/icon/Ellipse 4-2.svg'
 import RatioDotYellow from '@/assets/icon/Ellipse 4-1.svg'
 import RatioDotRed from '@/assets/icon/Ellipse 4.svg'
 import ButtonAdd from '@/assets/icon/iconsax-add-square-3kuhrv7g-.svg'
+import GenerateConfigTime from '@/assets/icon/iconsax-setting-5-vt7d8m7c-.svg'
 
 //AI Content Extractor view
 import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
@@ -112,12 +111,11 @@ export {
     CalendarDays,
     BannerGlow,
     BannerDocs,
-    Gantt,
     Calendar,
     Overview,
+    GenerateConfigTime,
     DropDownWhite,
     DropDownBlack,
-    SchedulerBannerDocs,
     RatioDotPurple,
     RatioDotYellow,
     RatioDotRed,

@@ -11,7 +11,6 @@ import DashboardView from '@/views/DashboardView.vue'
 import SmartSchedulerView from '@/views/SmartSchedulerView.vue'
 import SmartSchedulerOverviewView from '@/views/SmartSchedulerOverviewView.vue'
 import SmartSchedulerCalendarView from '@/views/SmartSchedulerCalendarView.vue'
-import SmartSchedulerGanttView from '@/views/SmartSchedulerGanttView.vue'
 import AIExtractorView from '@/views/AIExtractorView.vue'
 
 const isAuthenticated = () => !!localStorage.getItem('access_token')
@@ -23,7 +22,6 @@ const router = createRouter({
             path: '/',
             redirect: '/login',
         },
-
         {
             path: '/login',
             component: LoginView,
@@ -48,7 +46,6 @@ const router = createRouter({
             path: '/reset-password',
             component: ResetPasswordView,
         },
-
         {
             path: '/',
             component: MainLayout,
@@ -79,12 +76,6 @@ const router = createRouter({
                             path: 'calendar',
                             name: 'scheduler-calendar',
                             component: SmartSchedulerCalendarView,
-                            meta: { navbarTitle: 'Smart Scheduler' },
-                        },
-                        {
-                            path: 'gantt',
-                            name: 'scheduler-gantt',
-                            component: SmartSchedulerGanttView,
                             meta: { navbarTitle: 'Smart Scheduler' },
                         },
                     ],

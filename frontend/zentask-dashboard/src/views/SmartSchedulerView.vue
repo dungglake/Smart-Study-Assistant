@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import BaseNavbar from '@/navbar/BaseNavbar.vue'
 import SmartSchedulerNavbar from '@/navbar/SmartSchedulerNavbar.vue'
 </script>
 

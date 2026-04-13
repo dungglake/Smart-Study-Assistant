@@ -5,4 +5,3 @@ ortools>=9.10
 pypdf 
 python-docx
 requests
-nomic-embed-text

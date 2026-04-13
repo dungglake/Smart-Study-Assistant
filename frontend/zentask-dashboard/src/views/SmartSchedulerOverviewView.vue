@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  SchedulerBannerDocs,
-  BannerGlow,
   ChevronLeft,
   ChevronRight,
   RatioDotPurple,
@@ -11,10 +10,8 @@ import {
   ButtonAdd,
 } from '@/icons'
 
-const currentBaseDate = ref(new Date(2026, 0, 1)) // January 1, 2026
-const selectedDate = ref(formatDateLocal(new Date(2026, 0, 3))) // chọn sẵn Jan 3, 2026
-
-const dayLabels = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+const router = useRouter()
+const route = useRoute()
 
 function formatDateLocal(date: Date): string {
   const year = date.getFullYear()
@@ -23,37 +20,91 @@ function formatDateLocal(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function getStartOfWeekMonday(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay() // 0 = Sun, 1 = Mon
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
-  return d
+function parseDateFromQuery(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
 }
 
-const weekStart = computed(() => getStartOfWeekMonday(currentBaseDate.value))
+function getWeekBlockRange(date: Date) {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const day = date.getDate()
+
+  const startDay = Math.floor((day - 1) / 7) * 7 + 1
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
+  const endDay = Math.min(startDay + 6, lastDayOfMonth)
+
+  const start = new Date(year, month, startDay)
+  const end = new Date(year, month, endDay)
+
+  start.setHours(0, 0, 0, 0)
+  end.setHours(0, 0, 0, 0)
+
+  return { start, end }
+}
+
+function getInitialDate(): Date {
+  const queryDate = parseDateFromQuery(route.query.date)
+  if (queryDate) {
+    return getWeekBlockRange(queryDate).start
+  }
+
+  const fallback = new Date()
+  fallback.setHours(0, 0, 0, 0)
+  return getWeekBlockRange(fallback).start
+}
+
+function syncDateToQuery(date: Date) {
+  const formatted = formatDateLocal(getWeekBlockRange(date).start)
+
+  if (route.query.date === formatted) return
+
+  router.replace({
+    query: {
+      ...route.query,
+      date: formatted,
+    },
+  })
+}
+
+const initialDate = getInitialDate()
+
+const currentBaseDate = ref(initialDate)
+const selectedDate = ref(formatDateLocal(initialDate))
+
+const dayLabels = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+
+const weekRange = computed(() => getWeekBlockRange(currentBaseDate.value))
+const weekStart = computed(() => weekRange.value.start)
+const weekEnd = computed(() => weekRange.value.end)
 
 const visibleWeekDays = computed(() => {
   const start = new Date(weekStart.value)
-  const currentMonth = currentBaseDate.value.getMonth()
+  const end = new Date(weekEnd.value)
   const selected = selectedDate.value
 
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(start)
-    date.setDate(start.getDate() + i)
+  const days = []
+  const cursor = new Date(start)
 
-    const fullDate = formatDateLocal(date)
+  while (cursor <= end) {
+    const fullDate = formatDateLocal(cursor)
 
-    return {
-      day: dayLabels[date.getDay()],
-      date: `${date.getDate()}`.padStart(2, '0'),
+    days.push({
+      day: dayLabels[cursor.getDay()],
+      date: `${cursor.getDate()}`.padStart(2, '0'),
       fullDate,
-      isSunday: date.getDay() === 0,
-      isMuted: date.getMonth() !== currentMonth,
+      isSunday: cursor.getDay() === 0,
+      isMuted: false,
       isSelected: fullDate === selected,
-    }
-  })
+    })
+
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return days
 })
 
 const scheduleHeaderDays = computed(() =>
@@ -85,39 +136,75 @@ const monthYearLabel = computed(() => {
   })
 })
 
+const weekRangeLabel = computed(() => {
+  const format = (date: Date) =>
+    date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+
+  return `${format(weekStart.value)} - ${format(weekEnd.value)}`
+})
+
 function selectDate(fullDate: string) {
   selectedDate.value = fullDate
 
   const clicked = new Date(fullDate)
-  currentBaseDate.value = new Date(
-    clicked.getFullYear(),
-    clicked.getMonth(),
-    clicked.getDate()
-  )
+  clicked.setHours(0, 0, 0, 0)
+
+  currentBaseDate.value = getWeekBlockRange(clicked).start
+  syncDateToQuery(clicked)
 }
 
 function goPrevWeek() {
-  const next = new Date(currentBaseDate.value)
-  next.setDate(next.getDate() - 7)
-  currentBaseDate.value = next
+  const previousBlockDate = new Date(weekStart.value)
+  previousBlockDate.setDate(previousBlockDate.getDate() - 1)
+  previousBlockDate.setHours(0, 0, 0, 0)
 
-  const selected = new Date(selectedDate.value)
-  selected.setDate(selected.getDate() - 7)
-  selectedDate.value = formatDateLocal(selected)
+  const nextStart = getWeekBlockRange(previousBlockDate).start
+  currentBaseDate.value = nextStart
+  selectedDate.value = formatDateLocal(nextStart)
+  syncDateToQuery(nextStart)
 }
 
 function goNextWeek() {
-  const next = new Date(currentBaseDate.value)
-  next.setDate(next.getDate() + 7)
-  currentBaseDate.value = next
+  const nextBlockDate = new Date(weekEnd.value)
+  nextBlockDate.setDate(nextBlockDate.getDate() + 1)
+  nextBlockDate.setHours(0, 0, 0, 0)
 
-  const selected = new Date(selectedDate.value)
-  selected.setDate(selected.getDate() + 7)
-  selectedDate.value = formatDateLocal(selected)
+  const nextStart = getWeekBlockRange(nextBlockDate).start
+  currentBaseDate.value = nextStart
+  selectedDate.value = formatDateLocal(nextStart)
+  syncDateToQuery(nextStart)
 }
 
+watch(
+  () => route.query.date,
+  (newValue) => {
+    const parsed = parseDateFromQuery(newValue)
+    if (!parsed) return
+
+    const rangeStart = getWeekBlockRange(parsed).start
+    const formatted = formatDateLocal(rangeStart)
+
+    if (formatted !== formatDateLocal(currentBaseDate.value)) {
+      currentBaseDate.value = rangeStart
+    }
+
+    if (
+      !visibleWeekDays.value.some((item) => item.fullDate === selectedDate.value)
+    ) {
+      selectedDate.value = formatted
+    } else if (formatDateLocal(currentBaseDate.value) !== formatted) {
+      selectedDate.value = formatted
+    }
+  },
+  { immediate: true }
+)
+
 const hours = Array.from({ length: 17 }, (_, i) => {
-  const hour = i + 7 
+  const hour = i + 7
   const suffix = hour < 12 ? 'AM' : 'PM'
   const displayHour = hour === 12 ? 12 : hour > 12 ? hour - 12 : hour
   return `${displayHour}:00 ${suffix}`
@@ -126,43 +213,12 @@ const hours = Array.from({ length: 17 }, (_, i) => {
 
 <template>
   <div class="flex flex-col gap-6 px-8 pb-6 pt-8">
-    <!-- Banner -->
-    <section
-      class="relative isolate flex h-[120px] items-center overflow-visible rounded-[24px] border border-[#cfc2ff] bg-white py-3 pl-6 pr-3 shadow-[inset_0_0_12px_rgba(92,1,213,0.10)]"
-    >
-      <img
-        :src="BannerGlow"
-        alt="glow"
-        class="absolute right-0 top-1/2 z-[1] h-[120px] -translate-y-1/2 object-contain pointer-events-none"
-      />
-      <img
-        :src="SchedulerBannerDocs"
-        alt="docs"
-        class="absolute right-30 top-1/2 z-[2] h-[152px] -translate-y-1/2 object-contain pointer-events-none"
-      />
-
-      <div class="relative z-10 flex flex-col items-start gap-2.5">
-        <h2
-          class="bg-[linear-gradient(90deg,#5c01d5,#6460f4)] bg-clip-text text-[20px] font-bold leading-7 text-transparent"
-        >
-          Create a smart timetable with Smart Scheduler
-        </h2>
-
-        <button
-          type="button"
-          class="cursor-pointer rounded-md bg-[#171717] px-2.5 py-1.5 text-sm font-medium leading-5 text-white"
-        >
-          Add classes &amp; tasks
-        </button>
-      </div>
-    </section>
-
-    <!-- Row 1 -->
     <section class="grid grid-cols-12 gap-6">
-      <!-- Subject ratios -->
       <div class="col-span-6 rounded-[24px] bg-white p-6">
-        <div class="mb-6 text-[18px] font-semibold leading-7 text-[#171717]">
-          Subject Ratios
+        <div class="mb-6 flex items-center justify-between">
+          <div class="text-[18px] font-semibold leading-7 text-[#171717]">
+            Subject Ratios
+          </div>
         </div>
 
         <div class="flex min-h-[560px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#e5e5e5] bg-[#fafafa] px-6 text-center">
@@ -170,7 +226,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             No ratio data yet
           </div>
           <p class="mt-2 text-sm leading-6 text-[#737373]">
-            Subject ratio chart will appear here after the API is connected.
+            Subject ratio chart for the selected week will appear here after the API is connected.
           </p>
 
           <div class="mt-8 flex items-center gap-6 text-black">
@@ -190,15 +246,16 @@ const hours = Array.from({ length: 17 }, (_, i) => {
         </div>
       </div>
 
-      <!-- Calendar + Today -->
       <div class="col-span-6 flex flex-col gap-8 rounded-[24px] bg-white p-6">
         <div class="flex items-center justify-center gap-3">
           <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goPrevWeek">
             <img :src="ChevronLeft" class="h-5 w-5" alt="prev" />
           </button>
 
-          <div class="text-base leading-6 text-[#171717]">
-            {{ monthYearLabel }}
+          <div class="flex flex-col items-center">
+            <div class="text-base leading-6 text-[#171717]">
+              {{ monthYearLabel }}
+            </div>
           </div>
 
           <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goNextWeek">
@@ -211,7 +268,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             v-for="item in visibleWeekDays"
             :key="item.fullDate"
             type="button"
-            class="flex flex-1 justify-center text-center cursor-pointer"
+            class="flex flex-1 cursor-pointer justify-center text-center"
             @click="selectDate(item.fullDate)"
           >
             <div
@@ -246,32 +303,41 @@ const hours = Array.from({ length: 17 }, (_, i) => {
           </button>
         </div>
 
-        <div class="text-[18px] font-semibold leading-7 text-[#171717]">
-          Today's Schedule &amp; Tasks
+        <div class="flex items-center justify-between">
+          <div class="text-[18px] font-semibold leading-7 text-[#171717]">
+            Today's Schedule &amp; Tasks
+          </div>
         </div>
 
         <div
           class="flex min-h-[320px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#e5e5e5] bg-[#fafafa] px-6 text-center"
         >
           <div class="text-[16px] font-semibold text-[#171717]">
-            No tasks for today
+            No tasks for this week
           </div>
           <p class="mt-2 text-sm leading-6 text-[#737373]">
-            Today's schedule and tasks will be shown here after the API is ready.
+            Schedule and task items for the selected week will be shown here after the API is ready.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- Row 2 -->
     <section class="rounded-[24px] bg-white p-6">
-      <div class="mb-6 text-[18px] font-semibold leading-7 text-[#171717]">
-        Schedule
+      <div class="mb-6 flex items-center justify-between">
+        <div class="text-[18px] font-semibold leading-7 text-[#171717]">
+          Schedule
+        </div>
       </div>
 
       <div class="overflow-hidden rounded-[20px] border border-[#e5e5e5] bg-white">
-        <!-- Header -->
-        <div class="grid h-[72px] grid-cols-[110px_repeat(7,minmax(0,1fr))] border-b border-[#e5e5e5]">
+        <div
+          class="border-b border-[#e5e5e5]"
+          :style="{
+            display: 'grid',
+            gridTemplateColumns: `110px repeat(${scheduleHeaderDays.length}, minmax(0, 1fr))`,
+            height: '72px',
+          }"
+        >
           <div class="flex items-center justify-center border-r border-[#e5e5e5] text-[14px] font-medium text-[#525252]">
             GMT+7
           </div>
@@ -303,12 +369,15 @@ const hours = Array.from({ length: 17 }, (_, i) => {
           </div>
         </div>
 
-        <!-- Body -->
         <div class="relative">
           <div
             v-for="hour in hours"
             :key="hour"
-            class="grid h-20 grid-cols-[110px_repeat(7,minmax(0,1fr))]"
+            :style="{
+              display: 'grid',
+              gridTemplateColumns: `110px repeat(${scheduleHeaderDays.length}, minmax(0, 1fr))`,
+              height: '80px',
+            }"
           >
             <div class="flex items-start justify-center border-r border-[#e5e5e5] pt-4 text-[14px] leading-5 text-[#525252]">
               {{ hour }}
@@ -322,7 +391,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             >
               <button
                 type="button"
-                class="absolute bottom-1 right-1 z-[2] hidden h-6 w-6 items-center justify-center rounded-md bg-white transition hover:bg-[#f8f5ff] group-hover:flex cursor-pointer"
+                class="group-hover:flex absolute bottom-1 right-1 z-[2] hidden h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-white transition hover:bg-[#f8f5ff]"
                 :aria-label="`Add task on ${item.fullDate} at ${hour}`"
               >
                 <img :src="ButtonAdd" alt="add" class="h-5 w-5 object-contain" />
@@ -330,7 +399,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             </div>
           </div>
 
-          <div class=" pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div class="rounded-[16px] border border-dashed border-[#e5e5e5] bg-white/90 px-6 py-5 text-center shadow-sm">
               <div class="text-[16px] font-semibold text-[#171717]">
                 No schedule items yet
