@@ -29,14 +29,6 @@ const emit = defineEmits<{
 
 const localSubjects = ref<SubjectItem[]>(props.subjects ? [...props.subjects] : [])
 
-watch(
-  () => props.subjects,
-  (nextSubjects) => {
-    localSubjects.value = nextSubjects ? [...nextSubjects] : []
-  },
-  { deep: true }
-)
-
 const isAdding = ref(false)
 const isTimeDropdownOpen = ref(false)
 const isPriorityDropdownOpen = ref(false)
@@ -55,6 +47,13 @@ const priorityMap: Record<Priority, ApiPriority> = {
   High: 'high',
   Normal: 'normal',
   Low: 'low',
+}
+
+const priorityReverseMap: Record<ApiPriority, Priority> = {
+  urgent: 'Urgent',
+  high: 'High',
+  normal: 'Normal',
+  low: 'Low',
 }
 
 const priorityFilters: Record<Priority, string> = {
@@ -78,6 +77,25 @@ const draft = ref<{
   priority: '',
 })
 
+watch(
+  () => props.subjects,
+  (nextSubjects) => {
+    if (props.open && props.weekStart) return
+    localSubjects.value = nextSubjects ? [...nextSubjects] : []
+  },
+  { deep: true }
+)
+
+watch(
+  () => [props.open, props.weekStart],
+  ([isOpen]) => {
+    if (isOpen) {
+      loadSavedSubjects()
+    }
+  },
+  { immediate: true }
+)
+
 function normalizeStudyTime(value: string) {
   if (!value) return '1:00'
 
@@ -87,6 +105,57 @@ function normalizeStudyTime(value: string) {
   const safeMinute = String(safeMinuteNumber).padStart(2, '0')
 
   return `${safeHour}:${safeMinute}`
+}
+
+function convertHoursToStudyTime(hours: number | string | null | undefined) {
+  const totalMinutes = Math.round(Number(hours || 0) * 60)
+  const h = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  return `${h}:${String(m).padStart(2, '0')}`
+}
+
+async function loadSavedSubjects() {
+  if (!props.weekStart) {
+    localSubjects.value = props.subjects ? [...props.subjects] : []
+    return
+  }
+
+  isSaving.value = true
+  saveError.value = ''
+
+  try {
+    const response = await authFetch(`/api/planner/goals/week?week_start=${props.weekStart}`)
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null)
+      throw new Error(errorBody?.detail || 'Cannot load saved subjects')
+    }
+
+    const data = await response.json()
+
+    localSubjects.value = (data.subjects || []).map((item: any, index: number) => {
+      const apiPriority = (item.priority || 'normal') as ApiPriority
+
+      return {
+        id: Number(item.id || item.subject_id || Date.now() + index),
+        name: item.name || '',
+        studyTime: normalizeStudyTime(
+          item.studyTime || convertHoursToStudyTime(item.required_hours)
+        ),
+        priority: priorityReverseMap[apiPriority] || 'Normal',
+      }
+    })
+
+    closeAddForm()
+    openActionId.value = null
+    emit('save', localSubjects.value)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Cannot load saved subjects'
+    saveError.value = message
+    emit('error', message)
+  } finally {
+    isSaving.value = false
+  }
 }
 
 function buildSubjectPayload(subjects: SubjectItem[]) {
@@ -101,9 +170,7 @@ function buildSubjectPayload(subjects: SubjectItem[]) {
 async function saveSubjectsToDb(subjects: SubjectItem[]) {
   emit('save', subjects)
 
-  if (!props.weekStart) {
-    return
-  }
+  if (!props.weekStart) return
 
   isSaving.value = true
   saveError.value = ''
@@ -191,9 +258,7 @@ async function saveNewSubject() {
 
   if (editingSubjectId.value !== null) {
     localSubjects.value = localSubjects.value.map((item) =>
-      item.id === editingSubjectId.value
-        ? { ...item, ...payload }
-        : item
+      item.id === editingSubjectId.value ? { ...item, ...payload } : item
     )
   } else {
     localSubjects.value.push({

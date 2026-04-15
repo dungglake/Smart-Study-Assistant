@@ -15,6 +15,7 @@ function setStoredValue(keys: string[], value: string) {
             return
         }
     }
+
     if (keys.length > 0 && keys[0]) {
         localStorage.setItem(keys[0], value)
     }
@@ -30,6 +31,10 @@ export function getRefreshToken() {
 
 export function setAccessToken(token: string) {
     setStoredValue(['access', 'accessToken', 'access_token'], token)
+}
+
+export function setRefreshToken(token: string) {
+    setStoredValue(['refresh', 'refreshToken', 'refresh_token'], token)
 }
 
 export function clearAuthTokens() {
@@ -61,6 +66,12 @@ async function refreshAccessToken() {
     }
 
     setAccessToken(data.access)
+
+    // Quan trọng khi ROTATE_REFRESH_TOKENS = True
+    if (data.refresh) {
+        setRefreshToken(data.refresh)
+    }
+
     return data.access as string
 }
 

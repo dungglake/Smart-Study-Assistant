@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { DeleteIcon, TickSquare, GenerateConfigTime, ButtonAdd } from '@/icons'
+import {
+  DeleteIcon,
+  TickSquare,
+  GenerateConfigTime,
+  ButtonAdd,
+  WarningIcon,
+} from '@/icons'
 import { authJson } from '@/api/authFetch'
 
 type DaySummary = {
@@ -199,159 +205,177 @@ watch(
 </script>
 
 <template>
-  <div
-    v-if="open"
-    class="relative w-full rounded-3xl bg-white shadow-[0px_0px_32px_rgba(0,0,0,0.12)] flex max-h-[88vh] min-h-[220px] flex-col overflow-hidden"
-  >
-    <template v-if="confirmPopup">
-      <div class="rounded-lg bg-[#d99a12] p-4 text-sm text-white">
-        <div class="flex items-start gap-2.5">
-          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white text-xs font-bold">
-            !
-          </div>
+    <Teleport to="body">
+      <div
+        v-if="open && confirmPopup"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4"
+      >
+        <div class="w-full max-w-[620px] rounded-lg bg-[#d99a12] p-4 text-base text-white shadow-xl">
+          <div class="flex items-start gap-3">
+            <img :src="WarningIcon" class="mt-0.5 h-5 w-5 object-contain" alt="Warning" />
 
-          <div class="flex-1 flex flex-col items-start gap-2">
-            <div class="self-stretch flex flex-col items-start gap-1">
-              <div class="leading-5 font-medium">{{ confirmCopy.title }}</div>
-              <div class="self-stretch leading-5 text-white/90">{{ confirmCopy.message }}</div>
+            <div class="flex-1">
+              <div class="font-semibold leading-6">
+                {{ confirmCopy.title }}
+              </div>
+
+              <div class="mt-1 leading-6 text-white/95">
+                {{ confirmCopy.message }}
+              </div>
+
+              <div class="mt-3 flex items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  class="h-8 min-w-[72px] rounded-md bg-black px-3 font-medium text-white hover:bg-[#262626] cursor-pointer"
+                  @click="confirmAccess"
+                >
+                  Sure
+                </button>
+
+                <button
+                  type="button"
+                  class="h-8 min-w-[72px] rounded-md border border-[#d4d4d4] bg-white px-3 font-medium text-[#404040] hover:bg-[#f5f5f5] cursor-pointer"
+                  @click="cancelAccess"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
 
-            <div class="flex items-start gap-1.5 text-xs">
-              <button
-                type="button"
-                class="rounded-md bg-[#f5f5f5] px-2 py-1 font-medium leading-4 text-[#404040]"
-                @click="confirmAccess"
-              >
-                Sure
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-[#d4d4d4] bg-white px-2 py-1 font-medium leading-4 text-[#404040]"
-                @click="cancelAccess"
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="button"
+              class="rounded p-0.5 hover:bg-white/15 cursor-pointer"
+              @click="cancelAccess"
+            >
+              <img :src="DeleteIcon" class="h-6 w-6 object-contain brightness-0 invert" alt="Close" />
+            </button>
           </div>
-
-          <button type="button" class="rounded p-0.5 hover:bg-white/10" @click="cancelAccess">
-            <img :src="DeleteIcon" class="h-6 w-6 object-contain brightness-0 invert" alt="Close" />
-          </button>
         </div>
       </div>
-    </template>
-
-    <template v-else>
-      <div class="flex items-center gap-3 border-b border-[#e5e5e5] px-5 py-3">
-        <div class="flex-1 text-[18px] font-semibold leading-7 text-[#404040]">
-          Generate Scheduler
-        </div>
-        <button type="button" class="rounded-md p-1 hover:bg-[#f5f5f5]" @click="emit('close')">
-          <img :src="DeleteIcon" class="h-6 w-6 object-contain" alt="Close" />
-        </button>
+    </Teleport>
+    <div
+      v-if="open && !confirmPopup"
+      class="relative w-full rounded-3xl bg-white shadow-[0px_0px_32px_rgba(0,0,0,0.12)] flex max-h-[88vh] min-h-[220px] flex-col overflow-hidden"
+    >
+    <div class="flex items-center gap-3 border-b border-[#e5e5e5] px-5 py-3">
+      <div class="flex-1 text-[18px] font-semibold leading-7 text-[#404040]">
+        Generate Scheduler
       </div>
 
-      <div class="flex-1 overflow-y-auto px-5 pb-2 pt-5">
-        <div v-if="loading" class="py-10 text-center text-sm text-[#737373]">
-          Generating scheduler preview...
+      <button
+        type="button"
+        class="rounded-md p-1 cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+        @click="emit('close')"
+      >
+        <img :src="DeleteIcon" class="h-6 w-6 object-contain" alt="Close" />
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-5 pb-2 pt-5">
+      <div v-if="loading" class="py-10 text-center text-sm text-[#737373]">
+        Generating scheduler preview...
+      </div>
+
+      <template v-else>
+        <div class="text-[18px] font-semibold leading-7 text-black">
+          {{ summary?.total_scheduled_subjects || 0 }} subjects have been scheduled in your timetable:
         </div>
 
-        <template v-else>
-          <div class="text-[18px] font-semibold leading-7 text-black">
-            {{ summary?.total_scheduled_subjects || 0 }} subjects have been scheduled in your timetable:
-          </div>
+        <div
+          v-if="errorMessage"
+          class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+        >
+          {{ errorMessage }}
+        </div>
 
-          <div v-if="errorMessage" class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {{ errorMessage }}
-          </div>
-
+        <div
+          v-if="generateWarnings.length"
+          class="mt-3 flex flex-col gap-2 rounded-xl border border-[#f59e0b]/30 bg-[#fffbeb] p-3 text-sm text-[#92400e]"
+        >
           <div
-            v-if="generateWarnings.length"
-            class="mt-3 flex flex-col gap-2 rounded-xl border border-[#f59e0b]/30 bg-[#fffbeb] p-3 text-sm text-[#92400e]"
+            v-for="warning in generateWarnings"
+            :key="`${warning.type}-${warning.date || ''}-${warning.subject_id || ''}-${warning.message}`"
           >
-            <div
-              v-for="warning in generateWarnings"
-              :key="`${warning.type}-${warning.date || ''}-${warning.subject_id || ''}-${warning.message}`"
-            >
-              {{ warning.message }}
+            {{ warning.message }}
+          </div>
+        </div>
+
+        <div class="mt-3 flex flex-col text-[14px] text-[#404040]">
+          <div
+            v-for="day in summary?.daily || []"
+            :key="day.date"
+            class="flex items-center gap-3 border-b border-[#e5e5e5] py-2 last:border-b-0"
+          >
+            <div class="w-[120px] px-3 py-2 text-[16px] leading-6 font-medium text-[#404040]">
+              {{ day.weekday }}
+            </div>
+
+            <div class="flex-1 flex flex-wrap items-center gap-3">
+              <template v-if="day.busy_all_day && day.assigned_subjects.length === 0">
+                <div class="px-2.5 py-1.5 text-sm italic text-[#737373]">
+                  Busy all day
+                </div>
+              </template>
+
+              <template v-else-if="day.assigned_subjects.length > 0">
+                <div
+                  v-for="subject in day.assigned_subjects"
+                  :key="`${day.date}-${subject.id}-${subject.name}`"
+                  class="rounded-md border border-[#d4d4d4] bg-[#f5f5f5] px-2.5 py-1.5 text-sm font-medium text-[#404040]"
+                >
+                  {{ subject.name }}
+                </div>
+
+                <button
+                  v-if="day.scheduled_count < day.target_count"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-[#737373] cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+                  @click="requestOpenSubjectList"
+                >
+                  <img :src="ButtonAdd" class="h-5 w-5 object-contain" alt="Add" />
+                  <span>Add Subject</span>
+                </button>
+              </template>
+
+              <template v-else>
+                <button
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-[#737373] cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+                  @click="requestOpenSubjectList"
+                >
+                  <img :src="ButtonAdd" class="h-5 w-5 object-contain" alt="Add" />
+                  <span>Add Subject</span>
+                </button>
+              </template>
+            </div>
+
+            <div class="px-2.5 py-1.5 text-sm font-medium text-[#404040]">
+              {{ day.scheduled_count }}/{{ day.target_count }} Subjects
             </div>
           </div>
+        </div>
+      </template>
+    </div>
 
-          <div class="mt-3 flex flex-col text-[14px] text-[#404040]">
-            <div
-              v-for="day in summary?.daily || []"
-              :key="day.date"
-              class="flex items-center gap-3 border-b border-[#e5e5e5] py-2 last:border-b-0"
-            >
-              <div class="w-[120px] px-3 py-2 text-[16px] leading-6 font-medium text-[#404040]">
-                {{ day.weekday }}
-              </div>
+    <div class="flex items-center justify-end gap-3 border-t border-[#e5e5e5] p-5">
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md border border-[#d4d4d4] bg-white px-3 py-2 text-[16px] font-medium text-[#404040] cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+        @click="requestOpenTimeConfig"
+      >
+        <img :src="GenerateConfigTime" class="h-6 w-6 object-contain" alt="Config time" />
+        <span>Config Time</span>
+      </button>
 
-              <div class="flex-1 flex flex-wrap items-center gap-3">
-                <template v-if="day.busy_all_day && day.assigned_subjects.length === 0">
-                  <div class="px-2.5 py-1.5 text-sm italic text-[#737373]">Busy all day</div>
-                </template>
-
-                <template v-else-if="day.assigned_subjects.length > 0">
-                  <div
-                    v-for="subject in day.assigned_subjects"
-                    :key="`${day.date}-${subject.id}-${subject.name}`"
-                    class="rounded-md border border-[#d4d4d4] bg-[#f5f5f5] px-2.5 py-1.5 text-sm font-medium text-[#404040]"
-                  >
-                    {{ subject.name }}
-                  </div>
-
-                  <button
-                    v-if="day.scheduled_count < day.target_count"
-                    type="button"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-[#737373]"
-                    @click="requestOpenSubjectList"
-                  >
-                    <img :src="ButtonAdd" class="h-5 w-5 object-contain" alt="Add" />
-                    <span>Add Subject</span>
-                  </button>
-                </template>
-
-                <template v-else>
-                  <button
-                    type="button"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-[#737373]"
-                    @click="requestOpenSubjectList"
-                  >
-                    <img :src="ButtonAdd" class="h-5 w-5 object-contain" alt="Add" />
-                    <span>Add Subject</span>
-                  </button>
-                </template>
-              </div>
-
-              <div class="px-2.5 py-1.5 text-sm font-medium text-[#404040]">
-                {{ day.scheduled_count }}/{{ day.target_count }} Subjects
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <div class="flex items-center justify-end gap-3 border-t border-[#e5e5e5] p-5">
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-md border border-[#d4d4d4] bg-white px-3 py-2 text-[16px] font-medium text-[#404040]"
-          @click="requestOpenTimeConfig"
-        >
-          <img :src="GenerateConfigTime" class="h-6 w-6 object-contain" alt="Config time" />
-          <span>Config Time</span>
-        </button>
-
-        <button
-          type="button"
-          class="flex items-center gap-2 rounded-md bg-[#5c01d5] px-3 py-2 text-[16px] font-medium text-white disabled:opacity-60"
-          :disabled="applying || loading"
-          @click="applyScheduler"
-        >
-          <img :src="TickSquare" class="h-6 w-6 object-contain" alt="Apply scheduler" />
-          <span>{{ applying ? 'Applying...' : 'Apply Scheduler' }}</span>
-        </button>
-      </div>
-    </template>
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md bg-[#5c01d5] px-3 py-2 text-[16px] font-medium text-white cursor-pointer hover:bg-[#4c01b2] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-[#5c01d5] transition-colors"
+        :disabled="applying || loading"
+        @click="applyScheduler"
+      >
+        <img :src="TickSquare" class="h-6 w-6 object-contain" alt="Apply scheduler" />
+        <span>{{ applying ? 'Applying...' : 'Apply Scheduler' }}</span>
+      </button>
+    </div>
   </div>
 </template>
