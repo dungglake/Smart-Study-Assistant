@@ -73,17 +73,41 @@ class BusyBlock(models.Model):
         return f"{self.user_id} {self.date} {self.start}-{self.end} ({self.type})"
 
 class WeeklySubjectGoal(models.Model):
+    PRIORITY_CHOICES = (
+        ("urgent", "Urgent"),
+        ("high", "High"),
+        ("normal", "Normal"),
+        ("low", "Low"),
+    )
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    week_start = models.DateField()  
+    week_start = models.DateField()
     subject = models.ForeignKey("Subject", on_delete=models.CASCADE)
     required_hours = models.FloatField(default=1.0)
     deadline = models.DateTimeField(null=True, blank=True)
+
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default="normal"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=["user", "week_start"])]
         ordering = ["week_start", "subject_id"]
+class WeekDayConfig(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    week_start = models.DateField()
+    date = models.DateField()
+    number_of_subjects = models.PositiveIntegerField(default=0)
 
-    def __str__(self):
-        return f"{self.user_id} {self.week_start} {self.subject_id} {self.required_hours}h"
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "week_start", "date"],
+                name="unique_week_day_config"
+            )
+        ]
+        ordering = ["date"]

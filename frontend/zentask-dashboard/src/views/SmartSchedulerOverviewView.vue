@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import TimeConfigPanel from '@/components/scheduler/TimeConfigPanel.vue'
+import SubjectListPanel from '@/components/scheduler/SubjectListPanel.vue'
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,8 +12,37 @@ import {
   ButtonAdd,
 } from '@/icons'
 
+type VisibleDay = {
+  day: string
+  date: string
+  fullDate: string
+  isSunday: boolean
+  isSelected: boolean
+}
+
+const props = defineProps<{
+  isTimeConfigOpen?: boolean
+  isSubjectListOpen?: boolean
+  subjects?: any[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'close-time-config'): void
+  (e: 'close-subject-list'): void
+  (e: 'save-subjects', payload: any[]): void
+}>()
+
 const router = useRouter()
 const route = useRoute()
+
+const dayLabels = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const
+const savedWeekConfigs = ref<Record<string, any>>({})
+
+function handleSaveTimeConfig(payload: any) {
+  savedWeekConfigs.value[payload.weekStart] = payload
+  console.log('Saved week config:', payload)
+  emit('close-time-config')
+}
 
 function formatDateLocal(date: Date): string {
   const year = date.getFullYear()
@@ -28,89 +59,54 @@ function parseDateFromQuery(value: unknown): Date | null {
   return parsed
 }
 
-function getWeekBlockRange(date: Date) {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-  const day = date.getDate()
-
-  const startDay = Math.floor((day - 1) / 7) * 7 + 1
-  const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
-  const endDay = Math.min(startDay + 6, lastDayOfMonth)
-
-  const start = new Date(year, month, startDay)
-  const end = new Date(year, month, endDay)
-
-  start.setHours(0, 0, 0, 0)
-  end.setHours(0, 0, 0, 0)
-
-  return { start, end }
+function normalizeDate(date: Date): Date {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next
 }
 
-function getInitialDate(): Date {
-  const queryDate = parseDateFromQuery(route.query.date)
-  if (queryDate) {
-    return getWeekBlockRange(queryDate).start
-  }
-
-  const fallback = new Date()
-  fallback.setHours(0, 0, 0, 0)
-  return getWeekBlockRange(fallback).start
+function getStartOfWeekMonday(date: Date): Date {
+  const next = normalizeDate(date)
+  const day = next.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  next.setDate(next.getDate() + diff)
+  return next
 }
 
-function syncDateToQuery(date: Date) {
-  const formatted = formatDateLocal(getWeekBlockRange(date).start)
+const selectedDate = computed(() => {
+  const fromQuery = parseDateFromQuery(route.query.date)
+  if (fromQuery) return fromQuery
 
-  if (route.query.date === formatted) return
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+})
 
-  router.replace({
-    query: {
-      ...route.query,
-      date: formatted,
-    },
-  })
-}
+const weekStart = computed(() => getStartOfWeekMonday(selectedDate.value))
 
-const initialDate = getInitialDate()
-
-const currentBaseDate = ref(initialDate)
-const selectedDate = ref(formatDateLocal(initialDate))
-
-const dayLabels = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
-
-const weekRange = computed(() => getWeekBlockRange(currentBaseDate.value))
-const weekStart = computed(() => weekRange.value.start)
-const weekEnd = computed(() => weekRange.value.end)
-
-const visibleWeekDays = computed(() => {
+const visibleWeekDays = computed<VisibleDay[]>(() => {
   const start = new Date(weekStart.value)
-  const end = new Date(weekEnd.value)
-  const selected = selectedDate.value
 
-  const days = []
-  const cursor = new Date(start)
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
 
-  while (cursor <= end) {
-    const fullDate = formatDateLocal(cursor)
+    const fullDate = formatDateLocal(date)
 
-    days.push({
-      day: dayLabels[cursor.getDay()],
-      date: `${cursor.getDate()}`.padStart(2, '0'),
+    return {
+      day: dayLabels[index] ?? 'MO',
+      date: `${date.getDate()}`.padStart(2, '0'),
       fullDate,
-      isSunday: cursor.getDay() === 0,
-      isMuted: false,
-      isSelected: fullDate === selected,
-    })
-
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return days
+      isSunday: date.getDay() === 0,
+      isSelected: fullDate === formatDateLocal(selectedDate.value),
+    }
+  })
 })
 
 const scheduleHeaderDays = computed(() =>
   visibleWeekDays.value.map((item) => ({
     ...item,
-    weekend: item.day === 'SU' || item.day === 'SA',
+    weekend: item.day === 'SA' || item.day === 'SU',
     active: item.isSelected,
     shortDay:
       item.day === 'MO'
@@ -129,79 +125,37 @@ const scheduleHeaderDays = computed(() =>
   }))
 )
 
-const monthYearLabel = computed(() => {
-  return currentBaseDate.value.toLocaleDateString('en-US', {
+const monthYearLabel = computed(() =>
+  selectedDate.value.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
   })
-})
+)
 
-const weekRangeLabel = computed(() => {
-  const format = (date: Date) =>
-    date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-
-  return `${format(weekStart.value)} - ${format(weekEnd.value)}`
-})
+function updateSelectedDate(date: Date) {
+  router.replace({
+    query: {
+      ...route.query,
+      date: formatDateLocal(normalizeDate(date)),
+    },
+  })
+}
 
 function selectDate(fullDate: string) {
-  selectedDate.value = fullDate
-
-  const clicked = new Date(fullDate)
-  clicked.setHours(0, 0, 0, 0)
-
-  currentBaseDate.value = getWeekBlockRange(clicked).start
-  syncDateToQuery(clicked)
+  updateSelectedDate(new Date(fullDate))
 }
 
 function goPrevWeek() {
-  const previousBlockDate = new Date(weekStart.value)
-  previousBlockDate.setDate(previousBlockDate.getDate() - 1)
-  previousBlockDate.setHours(0, 0, 0, 0)
-
-  const nextStart = getWeekBlockRange(previousBlockDate).start
-  currentBaseDate.value = nextStart
-  selectedDate.value = formatDateLocal(nextStart)
-  syncDateToQuery(nextStart)
+  const next = new Date(selectedDate.value)
+  next.setDate(next.getDate() - 7)
+  updateSelectedDate(next)
 }
 
 function goNextWeek() {
-  const nextBlockDate = new Date(weekEnd.value)
-  nextBlockDate.setDate(nextBlockDate.getDate() + 1)
-  nextBlockDate.setHours(0, 0, 0, 0)
-
-  const nextStart = getWeekBlockRange(nextBlockDate).start
-  currentBaseDate.value = nextStart
-  selectedDate.value = formatDateLocal(nextStart)
-  syncDateToQuery(nextStart)
+  const next = new Date(selectedDate.value)
+  next.setDate(next.getDate() + 7)
+  updateSelectedDate(next)
 }
-
-watch(
-  () => route.query.date,
-  (newValue) => {
-    const parsed = parseDateFromQuery(newValue)
-    if (!parsed) return
-
-    const rangeStart = getWeekBlockRange(parsed).start
-    const formatted = formatDateLocal(rangeStart)
-
-    if (formatted !== formatDateLocal(currentBaseDate.value)) {
-      currentBaseDate.value = rangeStart
-    }
-
-    if (
-      !visibleWeekDays.value.some((item) => item.fullDate === selectedDate.value)
-    ) {
-      selectedDate.value = formatted
-    } else if (formatDateLocal(currentBaseDate.value) !== formatted) {
-      selectedDate.value = formatted
-    }
-  },
-  { immediate: true }
-)
 
 const hours = Array.from({ length: 17 }, (_, i) => {
   const hour = i + 7
@@ -213,6 +167,33 @@ const hours = Array.from({ length: 17 }, (_, i) => {
 
 <template>
   <div class="flex flex-col gap-6 px-8 pb-6 pt-8">
+    <div
+      v-if="props.isTimeConfigOpen"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
+    >
+      <div class="w-[760px] max-w-full">
+        <TimeConfigPanel
+          :open="true"
+          :selected-date="formatDateLocal(selectedDate)"
+          @close="emit('close-time-config')"
+          @save="handleSaveTimeConfig"
+        />
+      </div>
+    </div>
+    <div
+      v-if="props.isSubjectListOpen"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
+    >
+      <div class="w-[900px] max-w-full">
+        <SubjectListPanel
+          :open="true"
+          :subjects="props.subjects || []"
+          :week-start="formatDateLocal(weekStart)"
+          @close="emit('close-subject-list')"
+          @save="emit('save-subjects', $event)"
+        />
+      </div>
+    </div>
     <section class="grid grid-cols-12 gap-6">
       <div class="col-span-6 rounded-[24px] bg-white p-6">
         <div class="mb-6 flex items-center justify-between">
@@ -248,7 +229,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
 
       <div class="col-span-6 flex flex-col gap-8 rounded-[24px] bg-white p-6">
         <div class="flex items-center justify-center gap-3">
-          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goPrevWeek">
+          <button type="button" class="rounded-md p-1 hover:bg-gray-100" @click="goPrevWeek">
             <img :src="ChevronLeft" class="h-5 w-5" alt="prev" />
           </button>
 
@@ -258,7 +239,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
             </div>
           </div>
 
-          <button type="button" class="cursor-pointer hover:bg-gray-100" @click="goNextWeek">
+          <button type="button" class="rounded-md p-1 hover:bg-gray-100" @click="goNextWeek">
             <img :src="ChevronRight" class="h-5 w-5" alt="next" />
           </button>
         </div>
@@ -273,10 +254,7 @@ const hours = Array.from({ length: 17 }, (_, i) => {
           >
             <div
               class="inline-flex flex-col items-center gap-2 rounded-[999px] px-2.5 py-4 transition hover:bg-violet-50"
-              :class="[
-                item.isMuted ? 'opacity-25' : '',
-                item.isSelected ? 'bg-amber-50' : '',
-              ]"
+              :class="item.isSelected ? 'bg-amber-50' : ''"
             >
               <div class="flex items-center justify-center">
                 <b

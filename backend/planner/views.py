@@ -4,19 +4,45 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import transaction
-from .models import BusyBlock, WeeklySubjectGoal, Subject, PlanSlot
+from .models import BusyBlock, WeeklySubjectGoal, Subject, PlanSlot, WeekDayConfig
 from .serializers import SaveGoalsWeekSer, GenerateWeekSer, WeekAutoSaveSer
 from .scheduler import Prefs, Task, solve_schedule, build_slots_from_busy_daily
 
 @api_view(["GET"])
-def health_check(request):
-    return Response({"status": "ok"})
 
 def _week_range(week_start: date_type, horizon_days: int = 7):
     return week_start, week_start + timedelta(days=horizon_days)
 
 def _has_sleep(busy_items) -> bool:
     return any((b.get("type") == "sleep") for b in (busy_items or []))
+PRIORITY_ORDER = {
+    "urgent": 4,
+    "high": 3,
+    "normal": 2,
+    "low": 1,
+}
+
+
+def _study_time_to_hours(value):
+    """
+    Convert studyTime từ frontend sang required_hours.
+    Hỗ trợ:
+    - "02:30" => 2.5
+    - "2" => 2.0
+    - None/empty => 1.0
+    """
+    if value is None or value == "":
+        return 1.0
+
+    value = str(value).strip()
+
+    if ":" in value:
+        parts = value.split(":")
+        hour = int(parts[0] or 0)
+        minute = int(parts[1] or 0)
+        return round(hour + minute / 60, 2)
+
+    return float(value)
 
 def _find_prev_week_with_busy(user, week_start: date_type):
     last_busy = (
@@ -373,11 +399,17 @@ def autosave_week(request):
     week_start = data["week_start"]
     ws, we = _week_range(week_start, 7)
 
-    saved = {"busy": False, "subjects": False}
+    saved = {
+        "busy": False,
+        "subjects": False,
+        "day_configs": False,
+    }
+
     now = timezone.now()
     sleep_missing = None
 
     with transaction.atomic():
+        # 1. Save busy time
         if "busy" in data:
             busy_items = data["busy"]
             sleep_missing = not _has_sleep(busy_items)
@@ -400,8 +432,37 @@ def autosave_week(request):
             ])
 
             saved["busy"] = True
+
+        # 2. Save number of subjects per day
+        if "day_configs" in data:
+            day_configs = data["day_configs"]
+
+            WeekDayConfig.objects.filter(
+                user=request.user,
+                week_start=week_start,
+            ).delete()
+
+            WeekDayConfig.objects.bulk_create([
+                WeekDayConfig(
+                    user=request.user,
+                    week_start=week_start,
+                    date=item["date"],
+                    number_of_subjects=item.get("number_of_subjects", 0),
+                )
+                for item in day_configs
+            ])
+
+            saved["day_configs"] = True
+
+        # 3. Save subject list
         if "subjects" in data:
             subjects = data["subjects"]
+
+            subjects = sorted(
+                subjects,
+                key=lambda s: PRIORITY_ORDER.get(s.get("priority", "normal"), 2),
+                reverse=True,
+            )
 
             WeeklySubjectGoal.objects.filter(
                 user=request.user,
@@ -409,14 +470,30 @@ def autosave_week(request):
             ).delete()
 
             goals_to_create = []
+
             for s in subjects:
-                subj, _ = Subject.objects.get_or_create(user=request.user, name=s["name"])
+                subject_name = s["name"].strip()
+
+                if not subject_name:
+                    continue
+
+                subj, _ = Subject.objects.get_or_create(
+                    user=request.user,
+                    name=subject_name,
+                )
+
+                required_hours = s.get("required_hours")
+
+                if required_hours is None:
+                    required_hours = _study_time_to_hours(s.get("studyTime"))
+
                 goals_to_create.append(WeeklySubjectGoal(
                     user=request.user,
                     week_start=week_start,
                     subject=subj,
-                    required_hours=float(s["required_hours"]),
+                    required_hours=float(required_hours),
                     deadline=s.get("deadline"),
+                    priority=s.get("priority", "normal"),
                 ))
 
             WeeklySubjectGoal.objects.bulk_create(goals_to_create)
@@ -427,9 +504,8 @@ def autosave_week(request):
         "saved": saved,
         "saved_at": now.isoformat(),
         "sleep_missing": sleep_missing,
-        "warnings": (
-        ["Missing sleep block"] if sleep_missing else []
-    )}, status=200)
+        "warnings": ["Missing sleep block"] if sleep_missing else [],
+    }, status=200)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

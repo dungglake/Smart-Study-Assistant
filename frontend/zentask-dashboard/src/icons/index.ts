@@ -26,7 +26,6 @@ import LoginHeroImage from '@/assets/img/2299 1.png'
 // Optional extra vectors 
 import Zentask from '@/assets/icon/Zentask.svg'
 import SmartStudyAssistant from '@/assets/icon/SmartStudyAssistant.svg'
-
 import SettingIcon from '@/assets/icon/iconsax-setting-2-6rfbtf2o-.svg'
 import TaskSquareIcon from '@/assets/icon/iconsax-task-square-rklaywil-.svg'
 import BriefcaseIcon from '@/assets/icon/iconsax-briefcase-vlmvpa3m-.svg'
@@ -57,15 +56,23 @@ import RatioDotYellow from '@/assets/icon/Ellipse 4-1.svg'
 import RatioDotRed from '@/assets/icon/Ellipse 4.svg'
 import ButtonAdd from '@/assets/icon/iconsax-add-square-3kuhrv7g-.svg'
 import GenerateConfigTime from '@/assets/icon/iconsax-setting-5-vt7d8m7c-.svg'
+import ChevronsLeft from '@/assets/icon/chevrons-double-left.svg'
+import ChevronsRight from '@/assets/icon/chevrons-double-right.svg'
+import DropUp from '@/assets/icon/iconsax-arrow-up-02-pp9phwjq-.svg'
+import TickSquare from '@/assets/icon/iconsax-tick-square-ymg91do8-.svg'
+import TimerIcon from '@/assets/icon/iconsax-timer-4izqlnvl-.svg'
+import FlagIcon from '@/assets/icon/iconsax-flag-2-sw9859wb-.svg'
+import AddWhite from '@/assets/icon/add-white.svg'
+import DotsIcon from '@/assets/icon/iconsax-3-dots-more-fdoop9ib-.svg'
 
 //AI Content Extractor view
 import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
 import SourceItemCheckIcon from '@/assets/icon/source-item-check.svg'
 import SourceItemChatIcon from '@/assets/icon/source-item-chat.svg'
 import AddSourceIcon from '@/assets/icon/add-source-icon.svg'
-import AddCircleIcon from '@/assets/icon/add.svg'
-import AddQuizIcon from '@/assets/icon/add_1.svg'
-import AddMindmapIcon from '@/assets/icon/add_2.svg'
+import AddCircleIcon from '@/assets/icon/add-purple.svg'
+import AddQuizIcon from '@/assets/icon/add-green.svg'
+import AddMindmapIcon from '@/assets/icon/add-yellow.svg'
 import FlashcardIcon from '@/assets/icon/flashcard-icon.svg'
 import QuizIcon from '@/assets/icon/quiz-icon.svg'
 import MindmapIcon from '@/assets/icon/mindmap-icon.svg'
@@ -77,6 +84,7 @@ export {
     SidebarToggle,
     SidebarToggleOpen,
     ArrowUpRight,
+    AddWhite,
     HomeIcon,
     CalendarIcon,
     BookOpenIcon,
@@ -96,11 +104,16 @@ export {
     SmartStudyAssistant,
     SettingIcon,
     TaskSquareIcon,
+    DotsIcon,
+    TickSquare,
+    TimerIcon,
+    FlagIcon,
     BriefcaseIcon,
     LogoutIcon,
     DividerTop,
     DividerBottom,
     DropDown,
+    DropUp,
     Edit,
     Book,
     ChevronLeft,
@@ -121,6 +134,8 @@ export {
     RatioDotRed,
     ButtonAdd,
     DocumentUpload,
+    ChevronsLeft,
+    ChevronsRight,
     AddCircleIcon,
     AddSourceIcon,
     DeleteIcon,

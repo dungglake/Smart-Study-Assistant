@@ -11,7 +11,6 @@ from .views import (
 )
 
 urlpatterns = [
-    path("health/", health_check, name="planner-health"),
 
     # Busy timetable (auto-copy)
     path("busyblocks/week", get_busy_week, name="busy-week-get"),
