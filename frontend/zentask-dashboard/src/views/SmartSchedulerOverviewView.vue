@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TimeConfigPanel from '@/components/scheduler/TimeConfigPanel.vue'
 import SubjectListPanel from '@/components/scheduler/SubjectListPanel.vue'
+import GenerateSchedulerPopup from '@/components/scheduler/GenerateSchedulerPopup.vue'
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,13 +24,19 @@ type VisibleDay = {
 const props = defineProps<{
   isTimeConfigOpen?: boolean
   isSubjectListOpen?: boolean
+  isGeneratePopupOpen?: boolean
+  generatedSummary?: any
   subjects?: any[]
 }>()
 
 const emit = defineEmits<{
   (e: 'close-time-config'): void
+  (e: 'open-time-config'): void
+  (e: 'open-subject-list'): void
   (e: 'close-subject-list'): void
   (e: 'save-subjects', payload: any[]): void
+  (e: 'close-generate-popup'): void
+  (e: 'generated-summary', payload: any): void
 }>()
 
 const router = useRouter()
@@ -157,6 +164,10 @@ function goNextWeek() {
   updateSelectedDate(next)
 }
 
+const selectedDaySummary = computed(() =>
+  props.generatedSummary?.daily?.find((day: any) => day.date === formatDateLocal(selectedDate.value)) || null
+)
+
 const hours = Array.from({ length: 17 }, (_, i) => {
   const hour = i + 7
   const suffix = hour < 12 ? 'AM' : 'PM'
@@ -167,6 +178,21 @@ const hours = Array.from({ length: 17 }, (_, i) => {
 
 <template>
   <div class="flex flex-col gap-6 px-8 pb-6 pt-8">
+    <div
+      v-if="props.isGeneratePopupOpen"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
+    >
+      <div class="w-[980px] max-w-full">
+        <GenerateSchedulerPopup
+          :open="true"
+          :selected-date="formatDateLocal(selectedDate)"
+          @close="emit('close-generate-popup')"
+          @open-time-config="emit('close-generate-popup'); emit('open-time-config')"
+          @open-subject-list="emit('close-generate-popup'); emit('open-subject-list')"
+          @generated="emit('generated-summary', $event)"
+        />
+      </div>
+    </div>
     <div
       v-if="props.isTimeConfigOpen"
       class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
@@ -288,13 +314,28 @@ const hours = Array.from({ length: 17 }, (_, i) => {
         </div>
 
         <div
+          v-if="selectedDaySummary?.assigned_subjects?.length"
+          class="flex min-h-[320px] flex-col gap-3 rounded-[16px] border border-[#e5e5e5] bg-[#fafafa] p-4"
+        >
+          <div
+            v-for="subject in selectedDaySummary.assigned_subjects"
+            :key="`${selectedDaySummary.date}-${subject.id}-${subject.name}`"
+            class="rounded-xl border border-[#d4d4d4] bg-white px-4 py-3 text-left"
+          >
+            <div class="text-[16px] font-semibold text-[#404040]">{{ subject.name }}</div>
+            <div class="mt-1 text-sm text-[#737373]">Scheduled for {{ selectedDaySummary.weekday }}</div>
+          </div>
+        </div>
+
+        <div
+          v-else
           class="flex min-h-[320px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#e5e5e5] bg-[#fafafa] px-6 text-center"
         >
           <div class="text-[16px] font-semibold text-[#171717]">
-            No tasks for this week
+            No tasks for this day
           </div>
           <p class="mt-2 text-sm leading-6 text-[#737373]">
-            Schedule and task items for the selected week will be shown here after the API is ready.
+            Apply scheduler to show subjects for the selected day.
           </p>
         </div>
       </div>

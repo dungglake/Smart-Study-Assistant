@@ -64,6 +64,7 @@ import TimerIcon from '@/assets/icon/iconsax-timer-4izqlnvl-.svg'
 import FlagIcon from '@/assets/icon/iconsax-flag-2-sw9859wb-.svg'
 import AddWhite from '@/assets/icon/add-white.svg'
 import DotsIcon from '@/assets/icon/iconsax-3-dots-more-fdoop9ib-.svg'
+import WarningIcon from '@/assets/icon/iconsax-warning-2-cge3wueh-.svg'
 
 //AI Content Extractor view
 import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
@@ -115,6 +116,7 @@ export {
     DropDown,
     DropUp,
     Edit,
+    WarningIcon,
     Book,
     ChevronLeft,
     ChevronRight,

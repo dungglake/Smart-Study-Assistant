@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ButtonAdd } from '@/icons'
 import TimeConfigPanel from '@/components/scheduler/TimeConfigPanel.vue'
 import SubjectListPanel from '@/components/scheduler/SubjectListPanel.vue'
+import GenerateSchedulerPopup from '@/components/scheduler/GenerateSchedulerPopup.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,13 +13,19 @@ const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const props = defineProps<{
   isTimeConfigOpen?: boolean
   isSubjectListOpen?: boolean
+  isGeneratePopupOpen?: boolean
+  generatedSummary?: any
   subjects?: any[]
 }>()
 
 const emit = defineEmits<{
   (e: 'close-time-config'): void
+  (e: 'open-time-config'): void
+  (e: 'open-subject-list'): void
   (e: 'close-subject-list'): void
   (e: 'save-subjects', payload: any[]): void
+  (e: 'close-generate-popup'): void
+  (e: 'generated-summary', payload: any): void
 }>()
 
 const savedWeekConfigs = ref<Record<string, any>>({})
@@ -106,6 +113,7 @@ const calendarCells = computed(() => {
       isCurrentMonth: date.getMonth() === displayMonth.value.getMonth(),
       isSelected: isSameDate(date, selectedDate.value),
       isSunday: date.getDay() === 0,
+      scheduledSubjects: props.generatedSummary?.daily?.find((day: any) => day.date === formatDateLocal(date))?.assigned_subjects || [],
     })
 
     cursor.setDate(cursor.getDate() + 1)
@@ -130,6 +138,21 @@ function selectDate(date: Date) {
 
 <template>
   <div class="bg-[#f5f5f5] px-8 pb-6 pt-8">
+    <div
+      v-if="props.isGeneratePopupOpen"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
+    >
+      <div class="w-[980px] max-w-full">
+        <GenerateSchedulerPopup
+          :open="true"
+          :selected-date="formatDateLocal(selectedDate)"
+          @close="emit('close-generate-popup')"
+          @open-time-config="emit('close-generate-popup'); emit('open-time-config')"
+          @open-subject-list="emit('close-generate-popup'); emit('open-subject-list')"
+          @generated="emit('generated-summary', $event)"
+        />
+      </div>
+    </div>
     <div
       v-if="props.isTimeConfigOpen"
       class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-6"
@@ -186,6 +209,16 @@ function selectDate(date: Date) {
             ]"
             @click="selectDate(cell.date)"
           >
+            <div class="absolute left-2 top-2 right-2 flex flex-col items-start gap-1 text-left">
+              <div
+                v-for="subject in cell.scheduledSubjects"
+                :key="`${cell.key}-${subject.id}-${subject.name}`"
+                class="max-w-full truncate rounded-md bg-[#ede9fe] px-2 py-0.5 text-[11px] font-medium text-[#5c01d5]"
+              >
+                {{ subject.name }}
+              </div>
+            </div>
+
             <img
               :src="ButtonAdd"
               alt="Add"

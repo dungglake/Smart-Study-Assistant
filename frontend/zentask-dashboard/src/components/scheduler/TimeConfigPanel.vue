@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { DeleteIcon, TickSquare } from '@/icons'
+import { authFetch } from '@/api/authFetch'
 
 type TimeRange = {
   start: string
@@ -30,7 +31,6 @@ type EditingTime = {
 const props = defineProps<{
   open: boolean
   selectedDate: string
-  token?: string
 }>()
 
 const emit = defineEmits<{
@@ -42,6 +42,7 @@ const weekDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'S
 
 const editingTime = ref<EditingTime | null>(null)
 const isSaving = ref(false)
+const isLoading = ref(false)
 const errorMessage = ref('')
 
 function formatDateLocal(date: Date): string {
@@ -89,14 +90,80 @@ function createEmptyWeekConfig(selectedDate: string): WeekConfig {
 
 const form = reactive<WeekConfig>(createEmptyWeekConfig(props.selectedDate))
 
+function resetFormBySelectedDate(selectedDate: string) {
+  const next = createEmptyWeekConfig(selectedDate)
+  form.weekStart = next.weekStart
+  form.days.splice(0, form.days.length, ...next.days)
+  editingTime.value = null
+  errorMessage.value = ''
+}
+
+async function loadSavedConfig() {
+  if (!props.open || !form.weekStart) return
+
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const [busyResponse, summaryResponse] = await Promise.all([
+      authFetch(`/api/planner/busyblocks/week?week_start=${form.weekStart}`),
+      authFetch(`/api/planner/week/summary?week_start=${form.weekStart}`),
+    ])
+
+    const busyData = await busyResponse.json().catch(() => ({}))
+    const summaryData = await summaryResponse.json().catch(() => ({}))
+
+    if (!busyResponse.ok) {
+      throw new Error(busyData?.detail || 'Failed to load saved busy time.')
+    }
+
+    // Nếu backend chưa add week/summary thì vẫn load được busy time.
+    if (!summaryResponse.ok && summaryResponse.status !== 404) {
+      throw new Error(summaryData?.detail || 'Failed to load saved day config.')
+    }
+
+    for (const day of form.days) {
+      day.busyTimes = []
+      day.numberOfSubjects = 0
+    }
+
+    const busyItems = Array.isArray(busyData?.busy) ? busyData.busy : []
+
+    for (const item of busyItems) {
+      const day = getDay(item.date)
+      if (!day) continue
+
+      day.busyTimes.push({
+        start: String(item.start).slice(0, 5),
+        end: String(item.end).slice(0, 5),
+      })
+
+      sortBusyTimes(day)
+    }
+
+    const daily = Array.isArray(summaryData?.daily) ? summaryData.daily : []
+
+    for (const item of daily) {
+      const day = getDay(item.date)
+      if (!day) continue
+
+      day.numberOfSubjects = Number(item.target_count) || 0
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to load saved time config.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 watch(
-  () => props.selectedDate,
-  (value) => {
-    const next = createEmptyWeekConfig(value)
-    form.weekStart = next.weekStart
-    form.days.splice(0, form.days.length, ...next.days)
-    editingTime.value = null
-    errorMessage.value = ''
+  () => [props.selectedDate, props.open] as const,
+  async ([selectedDate, open]) => {
+    resetFormBySelectedDate(selectedDate)
+
+    if (open) {
+      await loadSavedConfig()
+    }
   },
   { immediate: true }
 )
@@ -185,10 +252,6 @@ function isAllTime(day: DayConfig) {
   )
 }
 
-function getAccessToken() {
-  return props.token || localStorage.getItem('access') || localStorage.getItem('accessToken') || ''
-}
-
 function buildPayload() {
   return {
     week_start: form.weekStart,
@@ -197,7 +260,6 @@ function buildPayload() {
         date: day.dayKey,
         start: time.start,
         end: time.end,
-        type: time.start === '00:00' && time.end === '23:59' ? 'other' : 'other',
       }))
     ),
     day_configs: form.days.map((day) => ({
@@ -212,14 +274,12 @@ async function saveConfig() {
   errorMessage.value = ''
 
   try {
-    const token = getAccessToken()
     const payload = buildPayload()
 
-    const response = await fetch('/api/planner/week/autosave', {
+    const response = await authFetch('/api/planner/week/autosave', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(payload),
     })
@@ -243,7 +303,7 @@ async function saveConfig() {
 <template>
   <div
     v-if="open"
-    class="w-full rounded-3xl bg-white shadow-[0px_0px_32px_rgba(0,0,0,0.12)] overflow-hidden"
+    class="w-full max-h-[80vh] rounded-3xl bg-white shadow-[0px_0px_32px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col"
   >
     <div class="flex items-center gap-3 border-b border-[#e5e5e5] px-5 py-3">
       <div class="flex-1 text-[18px] font-semibold leading-7 text-[#404040]">
@@ -259,18 +319,23 @@ async function saveConfig() {
       </button>
     </div>
 
-    <div class="px-5 pb-3 pt-0">
-      <div class="grid grid-cols-[120px_1fr_164px] gap-3 border-b border-[#e5e5e5] py-3 text-[#404040]">
+    <div class="flex min-h-0 flex-1 flex-col px-5 pb-3 pt-0">
+      <div class="shrink-0 grid grid-cols-[120px_1fr_164px] gap-3 border-b border-[#e5e5e5] py-3 text-[#404040]">
         <div></div>
         <div class="text-sm font-medium">Busy time</div>
         <div class="text-center text-sm font-medium">Number of subjects</div>
       </div>
 
-      <div
-        v-for="day in form.days"
-        :key="day.dayKey"
-        class="grid grid-cols-[120px_1fr_164px] gap-3 border-b border-[#e5e5e5] py-3"
-      >
+      <div v-if="isLoading" class="shrink-0 py-3 text-sm text-[#737373]">
+        Loading saved config...
+      </div>
+
+      <div class="config-time-scroll min-h-0 flex-1 overflow-y-auto pr-1">
+        <div
+          v-for="day in form.days"
+          :key="day.dayKey"
+          class="grid grid-cols-[120px_1fr_164px] gap-3 border-b border-[#e5e5e5] py-3"
+        >
         <div class="flex items-start pt-2 text-[16px] font-medium text-[#404040]">
           {{ day.label }}
         </div>
@@ -408,17 +473,18 @@ async function saveConfig() {
             class="w-[60px] rounded-md border border-[#d4d4d4] px-3 py-1.5 text-center text-sm font-medium text-[#404040] outline-none"
           />
         </div>
+        </div>
       </div>
 
-      <div v-if="errorMessage" class="pt-3 text-sm text-red-500">
+      <div v-if="errorMessage" class="shrink-0 pt-3 text-sm text-red-500">
         {{ errorMessage }}
       </div>
 
-      <div class="flex justify-end pt-4">
+      <div class="shrink-0 flex justify-end pt-4">
         <button
           type="button"
           class="rounded-md bg-[#5c01d5] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 hover:bg-[#4c01b2] transition-colors cursor-pointer"
-          :disabled="isSaving"
+          :disabled="isSaving || isLoading"
           @click="saveConfig"
         >
           {{ isSaving ? 'Saving...' : 'Save' }}
@@ -448,6 +514,19 @@ input[type='number'] {
 }
 
 .time-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.config-time-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.config-time-scroll::-webkit-scrollbar-thumb {
+  background: #c7c7c7;
+  border-radius: 999px;
+}
+
+.config-time-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 </style>

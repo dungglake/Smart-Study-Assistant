@@ -33,6 +33,7 @@ const route = useRoute()
 const emit = defineEmits<{
   (e: 'open-time-config'): void
   (e: 'open-subject-list'): void
+  (e: 'open-generate-popup'): void
 }>()
 
 const isGenerateMenuOpen = ref(false)
@@ -441,6 +442,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="flex items-center rounded-l-md bg-[#5c01d5] py-1.5 px-2.5 cursor-pointer"
+          @click="$emit('open-generate-popup')"
         >
           <div class="leading-5 font-medium">
             Generate Scheduler

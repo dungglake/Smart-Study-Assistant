@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { AddWhite, DeleteIcon, TimerIcon, FlagIcon, TickSquare, DotsIcon, EditIcon } from '@/icons'
+import { authFetch } from '@/api/authFetch'
 
 type Priority = 'Urgent' | 'High' | 'Normal' | 'Low'
 type DraftPriority = Priority | ''
@@ -17,7 +18,6 @@ const props = defineProps<{
   open: boolean
   subjects?: SubjectItem[]
   weekStart?: string
-  token?: string
 }>()
 
 const emit = defineEmits<{
@@ -78,15 +78,6 @@ const draft = ref<{
   priority: '',
 })
 
-function getAuthHeaders() {
-  const storedToken = props.token || localStorage.getItem('access') || localStorage.getItem('accessToken') || ''
-
-  return {
-    'Content-Type': 'application/json',
-    ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
-  }
-}
-
 function normalizeStudyTime(value: string) {
   if (!value) return '1:00'
 
@@ -118,9 +109,11 @@ async function saveSubjectsToDb(subjects: SubjectItem[]) {
   saveError.value = ''
 
   try {
-    const response = await fetch('/api/planner/week/autosave', {
+    const response = await authFetch('/api/planner/week/autosave', {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         week_start: props.weekStart,
         subjects: buildSubjectPayload(subjects),
