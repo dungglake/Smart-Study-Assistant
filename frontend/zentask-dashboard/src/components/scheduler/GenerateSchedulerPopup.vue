@@ -107,6 +107,21 @@ async function previewScheduler() {
   hasApplied.value = false
 
   try {
+    const savedSummary = await authJson(
+      `/api/planner/week/summary?week_start=${weekStart.value}`
+    )
+
+    const hasSavedPlan =
+      Array.isArray(savedSummary?.daily) &&
+      savedSummary.daily.some((day: DaySummary) => day.assigned_subjects.length > 0)
+
+    if (hasSavedPlan) {
+      summary.value = savedSummary
+      hasApplied.value = true
+      emit('generated', savedSummary)
+      return
+    }
+
     const data = await authJson('/api/planner/plan/preview-week', {
       method: 'POST',
       headers: {
@@ -117,6 +132,7 @@ async function previewScheduler() {
 
     summary.value = data?.summary || null
     generateWarnings.value = data?.warnings || []
+    hasApplied.value = false
 
     if (data?.summary) {
       emit('generated', data.summary)
