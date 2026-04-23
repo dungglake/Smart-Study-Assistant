@@ -107,21 +107,6 @@ async function previewScheduler() {
   hasApplied.value = false
 
   try {
-    const savedSummary = await authJson(
-      `/api/planner/week/summary?week_start=${weekStart.value}`
-    )
-
-    const hasSavedPlan =
-      Array.isArray(savedSummary?.daily) &&
-      savedSummary.daily.some((day: DaySummary) => day.assigned_subjects.length > 0)
-
-    if (hasSavedPlan) {
-      summary.value = savedSummary
-      hasApplied.value = true
-      emit('generated', savedSummary)
-      return
-    }
-
     const data = await authJson('/api/planner/plan/preview-week', {
       method: 'POST',
       headers: {
@@ -167,6 +152,9 @@ async function applyScheduler() {
       emit('generated', data.summary)
       emit('applied', data.summary)
     }
+    window.dispatchEvent(new CustomEvent('planner-plan-updated', {
+      detail: { weekStart: weekStart.value }
+    }))
   } catch (error: any) {
     errorMessage.value = error?.message || 'Cannot apply scheduler.'
   } finally {

@@ -291,13 +291,25 @@ async function saveConfig() {
     }
 
     emit('save', JSON.parse(JSON.stringify(form)))
+
+    window.dispatchEvent(
+      new CustomEvent('planner-plan-updated', {
+        detail: {
+          weekStart: form.weekStart,
+          warnings: data?.warnings || [],
+        },
+      })
+    )
+
     emit('close')
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to save time config.'
+    errorMessage.value =
+      error instanceof Error ? error.message : 'Failed to save time config.'
   } finally {
     isSaving.value = false
   }
 }
+
 </script>
 
 <template>

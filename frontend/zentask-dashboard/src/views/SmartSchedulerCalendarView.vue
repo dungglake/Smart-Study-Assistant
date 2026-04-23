@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ButtonAdd } from '@/icons'
+import { authJson } from '@/api/authFetch'
 import TimeConfigPanel from '@/components/scheduler/TimeConfigPanel.vue'
 import SubjectListPanel from '@/components/scheduler/SubjectListPanel.vue'
 import GenerateSchedulerPopup from '@/components/scheduler/GenerateSchedulerPopup.vue'
 
 const route = useRoute()
 const router = useRouter()
-const weekStart = computed(() => getStartOfWeekMonday(selectedDate.value))
+
 const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 const props = defineProps<{
   isTimeConfigOpen?: boolean
   isSubjectListOpen?: boolean
@@ -29,11 +30,16 @@ const emit = defineEmits<{
 }>()
 
 const savedWeekConfigs = ref<Record<string, any>>({})
+const dbGeneratedSummary = ref<any | null>(null)
 
-function handleSaveTimeConfig(payload: any) {
-  savedWeekConfigs.value[payload.weekStart] = payload
-  console.log('Saved week config:', payload)
-  emit('close-time-config')
+const activeGeneratedSummary = computed(() => {
+  return props.generatedSummary || dbGeneratedSummary.value
+})
+
+function handleSubjectListChanged(payload: any[]) {
+  dbGeneratedSummary.value = null
+  emit('generated-summary', null)
+  emit('save-subjects', payload)
 }
 
 function formatDateLocal(date: Date) {
@@ -51,6 +57,7 @@ function parseQueryDate(value: unknown) {
   }
 
   const date = new Date(value)
+
   if (Number.isNaN(date.getTime())) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -61,9 +68,14 @@ function parseQueryDate(value: unknown) {
   return date
 }
 
+function normalizeDate(date: Date) {
+  const next = new Date(date)
+  next.setHours(0, 0, 0, 0)
+  return next
+}
+
 function getStartOfWeekMonday(date: Date) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
+  const d = normalizeDate(date)
   const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
@@ -75,6 +87,43 @@ function isSameDate(a: Date, b: Date) {
 }
 
 const selectedDate = computed(() => parseQueryDate(route.query.date))
+const weekStart = computed(() => getStartOfWeekMonday(selectedDate.value))
+
+async function loadSavedGeneratedSummary() {
+  try {
+    const data = await authJson(
+      `/api/planner/week/summary?week_start=${formatDateLocal(weekStart.value)}`
+    )
+
+    const hasSavedPlan =
+      Array.isArray(data?.daily) &&
+      data.daily.some((day: any) => day.assigned_subjects?.length > 0)
+
+    if (hasSavedPlan) {
+      dbGeneratedSummary.value = data
+      emit('generated-summary', data)
+    } else {
+      dbGeneratedSummary.value = null
+    }
+  } catch (error) {
+    dbGeneratedSummary.value = null
+    console.error('Failed to load saved generated schedule:', error)
+  }
+}
+
+watch(
+  () => formatDateLocal(weekStart.value),
+  () => {
+    loadSavedGeneratedSummary()
+  },
+  { immediate: true }
+)
+
+function handleSaveTimeConfig(payload: any) {
+  savedWeekConfigs.value[payload.weekStart] = payload
+  console.log('Saved week config:', payload)
+  emit('close-time-config')
+}
 
 const displayMonth = computed(() => {
   return new Date(
@@ -90,6 +139,7 @@ const calendarCells = computed(() => {
     displayMonth.value.getMonth(),
     1
   )
+
   const monthEnd = new Date(
     displayMonth.value.getFullYear(),
     displayMonth.value.getMonth() + 1,
@@ -113,7 +163,10 @@ const calendarCells = computed(() => {
       isCurrentMonth: date.getMonth() === displayMonth.value.getMonth(),
       isSelected: isSameDate(date, selectedDate.value),
       isSunday: date.getDay() === 0,
-      scheduledSubjects: props.generatedSummary?.daily?.find((day: any) => day.date === formatDateLocal(date))?.assigned_subjects || [],
+      scheduledSubjects:
+        activeGeneratedSummary.value?.daily?.find(
+          (day: any) => day.date === formatDateLocal(date)
+        )?.assigned_subjects || [],
     })
 
     cursor.setDate(cursor.getDate() + 1)
@@ -126,7 +179,7 @@ function updateRouteDate(date: Date) {
   router.replace({
     query: {
       ...route.query,
-      date: formatDateLocal(date),
+      date: formatDateLocal(normalizeDate(date)),
     },
   })
 }
@@ -134,6 +187,22 @@ function updateRouteDate(date: Date) {
 function selectDate(date: Date) {
   updateRouteDate(date)
 }
+
+function handlePlannerPlanUpdated(event: Event) {
+  const customEvent = event as CustomEvent
+  if (customEvent.detail?.weekStart === formatDateLocal(weekStart.value)) {
+    loadSavedGeneratedSummary()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('planner-plan-updated', handlePlannerPlanUpdated)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('planner-plan-updated', handlePlannerPlanUpdated)
+})
+
 </script>
 
 <template>
@@ -150,6 +219,7 @@ function selectDate(date: Date) {
           @open-time-config="emit('close-generate-popup'); emit('open-time-config')"
           @open-subject-list="emit('close-generate-popup'); emit('open-subject-list')"
           @generated="emit('generated-summary', $event)"
+          @applied="emit('generated-summary', $event)"
         />
       </div>
     </div>
@@ -176,7 +246,8 @@ function selectDate(date: Date) {
           :subjects="props.subjects || []"
           :week-start="formatDateLocal(weekStart)"
           @close="emit('close-subject-list')"
-          @save="emit('save-subjects', $event)"
+          @save="handleSubjectListChanged"
+          @saved="handleSubjectListChanged"
         />
       </div>
     </div>
@@ -201,7 +272,7 @@ function selectDate(date: Date) {
             v-for="cell in calendarCells"
             :key="cell.key"
             type="button"
-            class="group relative h-[133px] border-r border-b border-[#e5e5e5] p-2 text-right text-[12px] transition last:border-r-0"
+            class="group relative h-[133px] border-r border-b border-[#e5e5e5] p-2 text-right text-[12px] transition last:border-r-0 cursor-pointer"
             :class="[
               cell.isSelected ? 'bg-[#6460f41a] text-[#5c01d5]' : '',
               !cell.isCurrentMonth ? 'text-[#a3a3a3]' : 'text-[#404040]',
@@ -213,20 +284,20 @@ function selectDate(date: Date) {
               <div
                 v-for="subject in cell.scheduledSubjects"
                 :key="`${cell.key}-${subject.id}-${subject.name}`"
-                class="max-w-full truncate rounded-md bg-[#ede9fe] px-2 py-0.5 text-[11px] font-medium text-[#5c01d5]"
+                class="max-w-full truncate border-l-[2px] border-[#5c01d5] bg-[#ede9fe] px-2 py-0.5 text-[11px] font-medium text-[#000000]"
               >
                 {{ subject.name }}
               </div>
             </div>
-
-            <img
-              :src="ButtonAdd"
-              alt="Add"
-              class="absolute bottom-1 right-8 hidden h-6 w-6 object-contain group-hover:block"
-              @click.stop
-            />
-
-            <span class="absolute bottom-2 right-2 leading-4">
+            
+            <span
+              class="absolute bottom-2 right-2 text-[13px] leading-4 transition"
+              :class="
+                cell.isSelected
+                  ? 'text-[#5c01d5] font-semibold'
+                  : 'text-[#404040]'
+              "
+            >
               {{ cell.dayNumber }}
             </span>
           </button>

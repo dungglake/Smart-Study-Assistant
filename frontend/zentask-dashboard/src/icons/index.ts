@@ -51,9 +51,6 @@ import Calendar from '@/assets/icon/iconsax-calendar-2vr87u8x-.svg'
 import Overview from '@/assets/icon/iconsax-top-bottom-grid-2fw0c8ao-.svg'
 import DropDownWhite from '@/assets/icon/arrow-down-white.svg'
 import DropDownBlack from '@/assets/icon/arrow-down-black.svg'
-import RatioDotPurple from '@/assets/icon/Ellipse 4-2.svg'
-import RatioDotYellow from '@/assets/icon/Ellipse 4-1.svg'
-import RatioDotRed from '@/assets/icon/Ellipse 4.svg'
 import ButtonAdd from '@/assets/icon/iconsax-add-square-3kuhrv7g-.svg'
 import GenerateConfigTime from '@/assets/icon/iconsax-setting-5-vt7d8m7c-.svg'
 import ChevronsLeft from '@/assets/icon/chevrons-double-left.svg'
@@ -65,6 +62,9 @@ import FlagIcon from '@/assets/icon/iconsax-flag-2-sw9859wb-.svg'
 import AddWhite from '@/assets/icon/add-white.svg'
 import DotsIcon from '@/assets/icon/iconsax-3-dots-more-fdoop9ib-.svg'
 import WarningIcon from '@/assets/icon/iconsax-warning-2-cge3wueh-.svg'
+import ArrowDown from '@/assets/icon/arrow-down-red.svg'
+import EditSubject from '@/assets/icon/iconsax-edit-ah2nqdy0-.svg'
+import MoreSubject from '@/assets/icon/iconsax-more-square-1mvat7dl-.svg'
 
 //AI Content Extractor view
 import DocumentUpload from '@/assets/icon/iconsax-document-upload-wrcfol0k-.svg'
@@ -77,7 +77,7 @@ import AddMindmapIcon from '@/assets/icon/add-yellow.svg'
 import FlashcardIcon from '@/assets/icon/flashcard-icon.svg'
 import QuizIcon from '@/assets/icon/quiz-icon.svg'
 import MindmapIcon from '@/assets/icon/mindmap-icon.svg'
-import EditIcon from '@/assets/icon/edit-icon.svg'
+import EditIcon from '@/assets/icon/edit-icon-gray.svg'
 import DeleteIcon from '@/assets/icon/delete-icon.svg'
 
 export {
@@ -86,6 +86,7 @@ export {
     SidebarToggleOpen,
     ArrowUpRight,
     AddWhite,
+    ArrowDown,
     HomeIcon,
     CalendarIcon,
     BookOpenIcon,
@@ -93,6 +94,8 @@ export {
     InfoCircleIcon,
     SearchIcon,
     BellIcon,
+    EditSubject,
+    MoreSubject,
     LoginEyeOffIcon,
     LoginEyeOnIcon,
     LoginLogoMark,
@@ -131,9 +134,6 @@ export {
     GenerateConfigTime,
     DropDownWhite,
     DropDownBlack,
-    RatioDotPurple,
-    RatioDotYellow,
-    RatioDotRed,
     ButtonAdd,
     DocumentUpload,
     ChevronsLeft,

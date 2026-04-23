@@ -1,5 +1,7 @@
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { authJson } from "@/api/authFetch";
 import {
   Book,
   CalendarDays,
@@ -7,20 +9,49 @@ import {
   ChevronRight,
   Clock,
   Document,
-  Plus,
   BannerGlow,
-  BannerDocs
+  BannerDocs,
+  ArrowDown,
 } from "@/icons"
+
+const route = useRoute();
+const router = useRouter();
 
 const chartFilter = ref("This week");
 const historyFilter = ref("This week");
 const isHistoryDropdownOpen = ref(false);
 const historyDropdownRef = ref(null);
 const hoveredBar = ref(null);
-const activeChartDay = ref("Saturday");
+const activeChartDay = ref("Monday");
 const chartWrapRef = ref(null);
 const chartRenderWidth = ref(860);
 const isChartDropdownOpen = ref(false);
+
+const weekPlanSlots = ref([]);
+const chartPlanSlots = ref([]);
+const previousChartPlanSlots = ref([]);
+const isScheduleLoading = ref(false);
+const scheduleError = ref("");
+const documentHistory = ref([])
+const uploadInputRef = ref(null)
+const isUploadingDocument = ref(false)
+
+async function loadConversations() {
+  try {
+    const res = await authJson('/api/conversations/')
+    documentHistory.value = res || []
+  } catch (e) {
+    documentHistory.value = []
+  }
+}
+
+function handleConversationListUpdated() {
+  loadConversations()
+}
+
+function goToAiContentExtractor() {
+  router.push('/extractor')
+}
 
 function selectHistoryFilter(value) {
   historyFilter.value = value;
@@ -30,6 +61,7 @@ function selectHistoryFilter(value) {
 function selectChartFilter(value) {
   chartFilter.value = value;
   isChartDropdownOpen.value = false;
+  loadChartSchedule();
 }
 
 function handleClickOutside(event) {
@@ -38,37 +70,180 @@ function handleClickOutside(event) {
   }
 }
 
-onMounted(() => {
-  document.addEventListener("click", handleClickOutside);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("click", handleClickOutside);
-});
-
 function updateChartRenderWidth() {
   if (!chartWrapRef.value) return;
   chartRenderWidth.value = chartWrapRef.value.clientWidth;
 }
 
 onMounted(() => {
-  updateChartRenderWidth();
+  loadConversations();
+
+  document.addEventListener("click", handleClickOutside);
   window.addEventListener("resize", updateChartRenderWidth);
+  window.addEventListener("planner-plan-updated", handlePlannerPlanUpdated);
+  window.addEventListener("conversation-list-updated", handleConversationListUpdated);
+
+  updateChartRenderWidth();
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutside);
   window.removeEventListener("resize", updateChartRenderWidth);
+  window.removeEventListener("planner-plan-updated", handlePlannerPlanUpdated);
+  window.removeEventListener("conversation-list-updated", handleConversationListUpdated);
 });
 
-const summary = ref({
-  studyTime: null,
-  studyTimeTrend: "Pending API",
-  subjects: null,
-  subjectTrend: "Pending API"
-});
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
-const currentBaseDate = ref(new Date("2026-01-01"));
-const selectedDate = ref("2026-01-03");
+function parseQueryDate(value) {
+  if (typeof value !== "string" || !value) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function normalizeDate(date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getStartOfWeekMonday(date) {
+  const next = normalizeDate(date);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setDate(next.getDate() + diff);
+  return next;
+}
+
+function getEndOfWeekSunday(date) {
+  const start = getStartOfWeekMonday(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return end;
+}
+
+function goToConversation(id) {
+  router.push({
+    path: '/extractor',
+    query: {
+      conversation_id: String(id),
+    },
+  })
+}
+
+function openUploadPicker() {
+  uploadInputRef.value?.click()
+}
+
+async function handleDashboardFileUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  try {
+    isUploadingDocument.value = true
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('title', file.name)
+
+    const res = await authJson('/api/materials/', {
+      method: 'POST',
+      body: formData,
+    })
+
+    const materialId = res?.material_id
+    if (!materialId) {
+      throw new Error('Upload failed: missing material_id')
+    }
+
+    await waitForConversationAndOpen(materialId)
+  } catch (error) {
+    console.error('Dashboard upload failed:', error)
+    await loadConversations()
+  } finally {
+    isUploadingDocument.value = false
+    if (uploadInputRef.value) {
+      uploadInputRef.value.value = ''
+    }
+  }
+}
+
+async function waitForConversationAndOpen(materialId) {
+  let tries = 0
+
+  while (tries < 60) {
+    const list = await authJson('/api/conversations/')
+
+    const found = Array.isArray(list)
+      ? list.find((c) => Number(c.material) === Number(materialId))
+      : null
+
+    if (found) {
+      documentHistory.value = list || []
+      window.dispatchEvent(new CustomEvent('conversation-list-updated'))
+
+      await router.push({
+        path: '/extractor',
+        query: {
+          conversation_id: found.id,
+        },
+      })
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    tries++
+  }
+
+  throw new Error('Conversation was not created in time.')
+}
+
+const selectedDateObject = computed(() => parseQueryDate(route.query.date));
+const selectedDate = computed(() => formatDate(selectedDateObject.value));
+const currentBaseDate = computed(() => getStartOfWeekMonday(selectedDateObject.value));
+const selectedWeekStart = computed(() => getStartOfWeekMonday(selectedDateObject.value));
+const selectedWeekStartKey = computed(() => formatDate(selectedWeekStart.value));
+
+function syncRouteDate(date) {
+  router.replace({
+    query: {
+      date: formatDate(normalizeDate(date)),
+    },
+  });
+}
+
+function selectDate(date) {
+  syncRouteDate(new Date(date));
+}
+
+function goPrevWeek() {
+  const d = new Date(selectedWeekStart.value);
+  d.setDate(d.getDate() - 7);
+  syncRouteDate(d);
+}
+
+function goNextWeek() {
+  const d = new Date(selectedWeekStart.value);
+  d.setDate(d.getDate() + 7);
+  syncRouteDate(d);
+}
 
 const visibleDays = computed(() => {
   const base = new Date(currentBaseDate.value);
@@ -93,46 +268,203 @@ const visibleDays = computed(() => {
 
   return days;
 });
-const tooltipPosition = computed(() => {
-  if (!hoveredPoint.value) return null;
 
-  const scaleX = chartRenderWidth.value / chartWidth;
-  const scaleY = scaleX; 
-
-  return {
-    left: hoveredPoint.value.x * scaleX,
-    top: (hoveredPoint.value.y - 138) * scaleY,
-  };
-});
 const currentMonthLabel = computed(() => {
-  if (!visibleDays.value.length) return "";
-
-  const middleDay = visibleDays.value[7];
-  const d = new Date(middleDay.fullDate);
-
+  const d = selectedDateObject.value;
   return d.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric"
   });
 });
 
-/* ===== MOCK DATA CHO STUDY TIME CHART ===== */
-const chartData = ref([
-  { day: "Monday", short: "Monday", hours: 4, subjects: ["UI/UX Design"] },
-  { day: "Tuesday", short: "Tuesday", hours: 7, subjects: ["UI/UX Design", "Marketing"] },
-  { day: "Wednesday", short: "Wednesday", hours: 5, subjects: ["Database"] },
-  { day: "Thursday", short: "Thursday", hours: 9, subjects: ["Database", "AI Basics"] },
-  { day: "Friday", short: "Friday", hours: 9, subjects: ["AI Basics", "Practice"] },
-  { day: "Saturday", short: "Saturday", hours: 7.5, subjects: ["A", "B"] },
-  { day: "Sunday", short: "Sunday", hours: 0, subjects: [] }
-]);
+function getSlotDate(slot) {
+  return String(slot.start || "").slice(0, 10);
+}
 
-const todaySchedule = ref([]);
+function getLocalTimeParts(value) {
+  const text = String(value || "");
+  const timeText = text.includes("T")
+    ? text.split("T")[1]
+    : text.split(" ")[1] || "00:00";
 
-const documentHistory = ref([]);
+  const [hour = "0", minute = "0"] = timeText.slice(0, 5).split(":");
+
+  return {
+    hour: Number(hour),
+    minute: Number(minute),
+  };
+}
+
+function getSlotStartMinutes(slot) {
+  const { hour, minute } = getLocalTimeParts(slot.start);
+  return hour * 60 + minute;
+}
+
+function formatTimeRange(start, end) {
+  const format = (value) => {
+    const { hour, minute } = getLocalTimeParts(value);
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  };
+
+  return `${format(start)}-${format(end)}`;
+}
+
+function slotDurationHours(slot) {
+  const startMinutes = getSlotStartMinutes({ start: slot.start });
+  const endMinutes = getSlotStartMinutes({ start: slot.end });
+
+  if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) return 0;
+
+  return Math.max(0, (endMinutes - startMinutes) / 60);
+}
+
+function formatHours(hours) {
+  if (!hours) return "0 hours";
+  const rounded = Math.round(hours * 10) / 10;
+  return `${rounded} ${rounded === 1 ? "hour" : "hours"}`;
+}
+
+function formatSubjectPreview(subjects) {
+  if (!subjects?.length) return "No data yet";
+  if (subjects.length <= 2) return subjects.join(", ");
+  return `${subjects.slice(0, 2).join(", ")} +${subjects.length - 2} more`;
+}
+
+async function fetchWeekPlan(weekStart) {
+  const data = await authJson(`/api/planner/plan/week?week_start=${weekStart}`);
+  return data?.plan || [];
+}
+
+async function loadWeekSchedule() {
+  isScheduleLoading.value = true;
+  scheduleError.value = "";
+
+  try {
+    weekPlanSlots.value = await fetchWeekPlan(selectedWeekStartKey.value);
+  } catch (error) {
+    weekPlanSlots.value = [];
+    scheduleError.value = error?.message || "Cannot load generated schedule.";
+  } finally {
+    isScheduleLoading.value = false;
+  }
+}
+
+function getMonthWeekStarts(baseDate) {
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth();
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+
+  const starts = [];
+  const cursor = getStartOfWeekMonday(monthStart);
+
+  while (cursor <= monthEnd) {
+    starts.push(formatDate(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return [...new Set(starts)];
+}
+
+function getPreviousWeekStartKey() {
+  const previousWeek = new Date(selectedWeekStart.value);
+  previousWeek.setDate(previousWeek.getDate() - 7);
+  return formatDate(previousWeek);
+}
+
+function getPreviousMonthWeekStarts(baseDate) {
+  const previousMonthDate = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth() - 1,
+    1
+  );
+
+  return getMonthWeekStarts(previousMonthDate);
+}
+
+function isSameMonth(dateValue, baseDate) {
+  const d = new Date(dateValue);
+  return (
+    d.getFullYear() === baseDate.getFullYear() &&
+    d.getMonth() === baseDate.getMonth()
+  );
+}
+
+async function loadChartSchedule() {
+  try {
+    if (chartFilter.value === "This month") {
+      const currentMonthDate = selectedDateObject.value;
+      const previousMonthDate = new Date(
+        currentMonthDate.getFullYear(),
+        currentMonthDate.getMonth() - 1,
+        1
+      );
+
+      const currentWeekStarts = getMonthWeekStarts(currentMonthDate);
+      const previousWeekStarts = getPreviousMonthWeekStarts(currentMonthDate);
+
+      const [currentResults, previousResults] = await Promise.all([
+        Promise.all(currentWeekStarts.map((weekStart) => fetchWeekPlan(weekStart))),
+        Promise.all(previousWeekStarts.map((weekStart) => fetchWeekPlan(weekStart))),
+      ]);
+
+      chartPlanSlots.value = currentResults
+        .flat()
+        .filter((slot) => isSameMonth(slot.start, currentMonthDate));
+
+      previousChartPlanSlots.value = previousResults
+        .flat()
+        .filter((slot) => isSameMonth(slot.start, previousMonthDate));
+
+      return;
+    }
+
+    const previousWeekStartKey = getPreviousWeekStartKey();
+
+    const [currentWeekPlan, previousWeekPlan] = await Promise.all([
+      fetchWeekPlan(selectedWeekStartKey.value),
+      fetchWeekPlan(previousWeekStartKey),
+    ]);
+
+    chartPlanSlots.value = currentWeekPlan;
+    previousChartPlanSlots.value = previousWeekPlan;
+  } catch (error) {
+    chartPlanSlots.value = [];
+    previousChartPlanSlots.value = [];
+    console.error("Cannot load chart schedule:", error);
+  }
+}
+
+watch(
+  selectedWeekStartKey,
+  () => {
+    loadWeekSchedule();
+    loadChartSchedule();
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.date,
+  () => {
+    loadChartSchedule();
+  }
+);
+
+const todaySchedule = computed(() => {
+  return weekPlanSlots.value
+    .filter((slot) => getSlotDate(slot) === selectedDate.value)
+    .sort((a, b) => getSlotStartMinutes(a) - getSlotStartMinutes(b))
+    .map((slot) => ({
+      subject: slot.subject_name || "Subject",
+      time: formatTimeRange(slot.start, slot.end),
+      type: "Practice",
+    }));
+});
+
 
 const todayLabel = computed(() => {
-  const d = new Date(selectedDate.value);
+  const d = selectedDateObject.value;
   return d.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "2-digit",
@@ -141,28 +473,132 @@ const todayLabel = computed(() => {
   });
 });
 
-function formatDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+const chartData = computed(() => {
+  if (chartFilter.value === "This month") {
+    const year = selectedDateObject.value.getFullYear();
+    const month = selectedDateObject.value.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+
+    return Array.from({ length: lastDay }, (_, index) => {
+      const dayDate = new Date(year, month, index + 1);
+      const key = formatDate(dayDate);
+      const slots = chartPlanSlots.value.filter((slot) => getSlotDate(slot) === key);
+      const subjects = [...new Set(slots.map((slot) => slot.subject_name).filter(Boolean))];
+      const hours = slots.reduce((sum, slot) => sum + slotDurationHours(slot), 0);
+
+      return {
+        day: key,
+        short: String(index + 1).padStart(2, "0"),
+        label: dayDate.toLocaleDateString("en-US", { weekday: "long" }),
+        hours,
+        subjects,
+      };
+    });
+  }
+
+  const labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const start = new Date(selectedWeekStart.value);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + index);
+    const key = formatDate(d);
+    const slots = chartPlanSlots.value.filter((slot) => getSlotDate(slot) === key);
+    const subjects = [...new Set(slots.map((slot) => slot.subject_name).filter(Boolean))];
+    const hours = slots.reduce((sum, slot) => sum + slotDurationHours(slot), 0);
+
+    return {
+      day: labels[index],
+      short: labels[index],
+      label: labels[index],
+      hours,
+      subjects,
+    };
+  });
+});
+
+function getPlanStats(slots) {
+  const totalHours = slots.reduce((sum, slot) => sum + slotDurationHours(slot), 0);
+  const subjectCount = new Set(
+    slots.map((slot) => slot.subject_name).filter(Boolean)
+  ).size;
+
+  return {
+    totalHours,
+    subjectCount,
+  };
 }
 
-function selectDate(date) {
-  selectedDate.value = date;
+function formatTrend(current, previous) {
+  if (previous === 0 && current === 0) {
+    return "No change";
+  }
+
+  if (previous === 0 && current > 0) {
+    return "100%";
+  }
+
+  const percent = ((current - previous) / previous) * 100;
+  const rounded = Math.round(percent * 10) / 10;
+
+  if (rounded === 0) {
+    return "No change";
+  }
+
+  return `${Math.abs(rounded)}%`;
 }
 
-function goPrevWeek() {
-  const d = new Date(currentBaseDate.value);
-  d.setDate(d.getDate() - 7);
-  currentBaseDate.value = d;
+function getTrendDirection(current, previous) {
+  if (current > previous) return "up";
+  if (current < previous) return "down";
+  return "same";
 }
 
-function goNextWeek() {
-  const d = new Date(currentBaseDate.value);
-  d.setDate(d.getDate() + 7);
-  currentBaseDate.value = d;
+function getTrendClass(current, previous) {
+  if (current > previous) return "bg-emerald-50 text-emerald-600";
+  if (current < previous) return "bg-red-50 text-red-600";
+  return "bg-gray-100 text-gray-600";
 }
+
+const summary = computed(() => {
+  const currentStats = getPlanStats(chartPlanSlots.value);
+  const previousStats = getPlanStats(previousChartPlanSlots.value);
+
+  const currentHours = Math.round(currentStats.totalHours * 10) / 10;
+  const previousHours = Math.round(previousStats.totalHours * 10) / 10;
+
+  const subjectLabel =
+    currentStats.subjectCount > 0
+      ? `${currentStats.subjectCount} ${
+          currentStats.subjectCount === 1 ? "subject" : "subjects"
+        }`
+      : "No data yet";
+
+  return {
+    studyTime: currentStats.totalHours
+      ? formatHours(currentStats.totalHours)
+      : "No data yet",
+
+    studyTimeTrend: formatTrend(currentHours, previousHours),
+    studyTimeTrendDirection: getTrendDirection(currentHours, previousHours),
+    studyTimeTrendClass: getTrendClass(currentHours, previousHours),
+
+    subjects: subjectLabel,
+
+    subjectTrend: formatTrend(
+      currentStats.subjectCount,
+      previousStats.subjectCount
+    ),
+    subjectTrendDirection: getTrendDirection(
+      currentStats.subjectCount,
+      previousStats.subjectCount
+    ),
+    subjectTrendClass: getTrendClass(
+      currentStats.subjectCount,
+      previousStats.subjectCount
+    ),
+  };
+});
 
 /* ===== AREA CHART LAYOUT ===== */
 const chartWidth = 760;
@@ -171,12 +607,19 @@ const chartPaddingTop = 40;
 const chartPaddingRight = 36;
 const chartPaddingBottom = 56;
 const chartPaddingLeft = 60;
-const chartMaxY = 12;
+
+const chartMaxY = computed(() => {
+  const maxHours = Math.max(...chartData.value.map((item) => item.hours), 0);
+  return Math.max(12, Math.ceil(maxHours));
+});
 
 const innerWidth = computed(() => chartWidth - chartPaddingLeft - chartPaddingRight);
 const innerHeight = computed(() => chartHeight - chartPaddingTop - chartPaddingBottom);
 
-const xStep = computed(() => innerWidth.value / (chartData.value.length - 1));
+const xStep = computed(() => {
+  if (chartData.value.length <= 1) return innerWidth.value;
+  return innerWidth.value / (chartData.value.length - 1);
+});
 
 const chartPoints = computed(() => {
   return chartData.value.map((item, index) => {
@@ -184,7 +627,7 @@ const chartPoints = computed(() => {
     const y =
       chartPaddingTop +
       innerHeight.value -
-      (item.hours / chartMaxY) * innerHeight.value;
+      (item.hours / chartMaxY.value) * innerHeight.value;
 
     return {
       ...item,
@@ -210,6 +653,11 @@ function buildSmoothLinePath(points) {
   return path;
 }
 
+function handlePlannerPlanUpdated() {
+  loadWeekSchedule();
+  loadChartSchedule();
+}
+
 const linePath = computed(() => buildSmoothLinePath(chartPoints.value));
 
 const areaPath = computed(() => {
@@ -224,13 +672,27 @@ const areaPath = computed(() => {
   return `${smoothLine} L ${last.x} ${baseY} L ${first.x} ${baseY} Z`;
 });
 
-const yTicks = computed(() => Array.from({ length: 13 }, (_, i) => 12 - i));
+const yTicks = computed(() => Array.from({ length: 7 }, (_, i) => {
+  const step = chartMaxY.value / 6;
+  return Math.round((chartMaxY.value - i * step) * 10) / 10;
+}));
 
 const hoveredPoint = computed(() => {
   const targetDay = hoveredBar.value || activeChartDay.value;
-  return chartPoints.value.find(item => item.day === targetDay) || null;
+  return chartPoints.value.find(item => item.day === targetDay) || chartPoints.value[0] || null;
 });
 
+const tooltipPosition = computed(() => {
+  if (!hoveredPoint.value) return null;
+
+  const scaleX = chartRenderWidth.value / chartWidth;
+  const scaleY = scaleX;
+
+  return {
+    left: hoveredPoint.value.x * scaleX,
+    top: (hoveredPoint.value.y - 138) * scaleY,
+  };
+});
 </script>
 
 <style scoped>
@@ -255,12 +717,27 @@ const hoveredPoint = computed(() => {
 
         <div class="flex items-center gap-3">
           <p class="text-base text-gray-700">
-            {{ summary.studyTime || "No data yet" }}
+            {{ summary.studyTime }}
           </p>
           <span
-            class="rounded-full bg-emerald-50 text-emerald-600 text-sm px-3 py-1 font-medium"
+            class="rounded-full text-sm px-3 py-1 font-medium inline-flex items-center gap-1"
+            :class="summary.studyTimeTrendClass"
           >
-            {{ summary.studyTimeTrend || "Pending API" }}
+            <img
+              v-if="summary.studyTimeTrendDirection === 'up'"
+              :src="CalendarDays"
+              alt="increase"
+              class="w-3 h-3"
+            />
+
+            <img
+              v-else-if="summary.studyTimeTrendDirection === 'down'"
+              :src="ArrowDown"
+              alt="decrease"
+              class="w-3 h-3"
+            />
+
+            {{ summary.studyTimeTrend }}
           </span>
         </div>
       </div>
@@ -275,12 +752,27 @@ const hoveredPoint = computed(() => {
 
         <div class="flex items-center gap-3">
           <p class="text-base text-gray-700">
-            {{ summary.subjects || "No data yet" }}
+            {{ summary.subjects }}
           </p>
           <span
-            class="rounded-full bg-emerald-50 text-emerald-600 text-sm px-3 py-1 font-medium"
+            class="rounded-full text-sm px-3 py-1 font-medium inline-flex items-center gap-1"
+            :class="summary.subjectTrendClass"
           >
-            {{ summary.subjectTrend || "Pending API" }}
+            <img
+              v-if="summary.subjectTrendDirection === 'up'"
+              :src="CalendarDays"
+              alt="increase"
+              class="w-3 h-3"
+            />
+
+            <img
+              v-else-if="summary.subjectTrendDirection === 'down'"
+              :src="ArrowDown"
+              alt="decrease"
+              class="w-3 h-3"
+            />
+
+            {{ summary.subjectTrend }}
           </span>
         </div>
       </div>
@@ -298,6 +790,7 @@ const hoveredPoint = computed(() => {
 
             <button
               class="mt-6 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition cursor-pointer"
+              @click="goToAiContentExtractor"
             >
               Free conversion
             </button>
@@ -444,22 +937,20 @@ const hoveredPoint = computed(() => {
                 </linearGradient>
               </defs>
 
-              <!-- Grid -->
               <g>
                 <line
                   v-for="tick in yTicks"
                   :key="tick"
                   :x1="chartPaddingLeft"
                   :x2="chartWidth - chartPaddingRight"
-                  :y1="chartPaddingTop + ((12 - tick) / 12) * innerHeight"
-                  :y2="chartPaddingTop + ((12 - tick) / 12) * innerHeight"
+                  :y1="chartPaddingTop + ((chartMaxY - tick) / chartMaxY) * innerHeight"
+                  :y2="chartPaddingTop + ((chartMaxY - tick) / chartMaxY) * innerHeight"
                   stroke="#d9d9d9"
                   stroke-dasharray="3 4"
                   stroke-width="1"
                 />
               </g>
 
-              <!-- Y labels -->
               <g>
                 <text
                   x="8"
@@ -475,7 +966,7 @@ const hoveredPoint = computed(() => {
                   v-for="tick in yTicks"
                   :key="`label-${tick}`"
                   x="44"
-                  :y="chartPaddingTop + ((12 - tick) / 12) * innerHeight + 5"
+                  :y="chartPaddingTop + ((chartMaxY - tick) / chartMaxY) * innerHeight + 5"
                   text-anchor="end"
                   fill="#171717"
                   font-size="12"
@@ -484,13 +975,8 @@ const hoveredPoint = computed(() => {
                 </text>
               </g>
 
-              <!-- Area -->
-              <path
-                :d="areaPath"
-                fill="url(#studyAreaFill)"
-              />
+              <path :d="areaPath" fill="url(#studyAreaFill)" />
 
-              <!-- Line -->
               <path
                 :d="linePath"
                 fill="none"
@@ -500,7 +986,6 @@ const hoveredPoint = computed(() => {
                 stroke-linejoin="round"
               />
 
-              <!-- Points hover zone -->
               <g v-for="(point, index) in chartPoints" :key="`hover-zone-${point.day}`">
                 <rect
                   :x="index === 0 ? chartPaddingLeft : point.x - xStep / 2"
@@ -515,7 +1000,6 @@ const hoveredPoint = computed(() => {
                 />
               </g>
 
-              <!-- Active point -->
               <circle
                 v-if="hoveredPoint"
                 :cx="hoveredPoint.x"
@@ -526,7 +1010,6 @@ const hoveredPoint = computed(() => {
                 stroke-width="2"
               />
 
-              <!-- X labels -->
               <g>
                 <text
                   v-for="point in chartPoints"
@@ -542,7 +1025,6 @@ const hoveredPoint = computed(() => {
               </g>
             </svg>
 
-            <!-- Tooltip HTML overlay -->
             <div
               v-if="hoveredPoint && tooltipPosition"
               class="pointer-events-none absolute z-10"
@@ -556,18 +1038,14 @@ const hoveredPoint = computed(() => {
                   class="relative w-[185px] rounded-[20px] border border-[#d9d9d9] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(0,0,0,0.10)]"
                 >
                   <div class="inline-flex rounded-full bg-[#6d28ff] px-4 py-1 text-white text-[12px] font-medium">
-                    {{ hoveredPoint.day }}
+                    {{ hoveredPoint.label || hoveredPoint.day }}
                   </div>
 
                   <div class="mt-3 text-[14px] leading-6 text-[#171717]">
-                    <div>Study time: {{ Math.round(hoveredPoint.hours) }} hours</div>
+                    <div>Study time: {{ Math.round(hoveredPoint.hours * 10) / 10 }} hours</div>
                     <div>
                       Subjects:
-                      {{
-                        hoveredPoint.subjects?.length
-                          ? hoveredPoint.subjects.join(" and ")
-                          : "No data yet"
-                      }}
+                      {{ formatSubjectPreview(hoveredPoint.subjects) }}
                     </div>
                   </div>
 
@@ -579,8 +1057,8 @@ const hoveredPoint = computed(() => {
             </div>
           </div>
 
-          <div class="mt-5 text-sm text-gray-500">
-            * Visualization is currently using mock data and can be replaced with API data later.
+          <div v-if="scheduleError" class="mt-5 text-sm text-red-500">
+            {{ scheduleError }}
           </div>
         </div>
       </div>
@@ -591,24 +1069,33 @@ const hoveredPoint = computed(() => {
           <p class="text-sm text-gray-500 mt-1">{{ todayLabel }}</p>
         </div>
 
-        <div v-if="todaySchedule.length" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+        <div v-if="isScheduleLoading" class="h-[320px] flex items-center justify-center text-gray-500">
+          Loading generated schedule...
+        </div>
+
+        <div v-else-if="todaySchedule.length" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
           <div
             v-for="(item, index) in todaySchedule"
             :key="index"
-            class="rounded-2xl p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100"
+            class="rounded-2xl p-5 border"
+            :class="
+              index % 2 === 0
+                ? 'bg-[#5C01D5]/[0.04] border-[#5C01D5]/10'
+                : 'bg-[#6460F4]/[0.04] border-[#6460F4]/10'
+            "
           >
-            <div class="pb-2 border-b border-gray-200">
-              <h4 class="font-semibold text-gray-900">
-                {{ item.subject || "Subject pending API" }}
+            <div class="pb-2 border-b border-black">
+              <h4 class="font-bold text-gray-900 text-xl">
+                {{ item.subject }}
               </h4>
             </div>
 
             <div class="pt-3 space-y-2 text-sm text-gray-700">
-              <p>Time: {{ item.time || "Pending API" }}</p>
+              <p>Time: {{ item.time }}</p>
               <div class="flex items-center gap-2">
                 <span>Type:</span>
-                <span class="px-3 py-1 rounded-full bg-violet-600 text-white text-xs font-medium">
-                  {{ item.type || "Pending API" }}
+                <span class="px-3 py-1 rounded-full bg-violet-600 text-white text-xm font-medium">
+                  {{ item.type }}
                 </span>
               </div>
             </div>
@@ -621,7 +1108,7 @@ const hoveredPoint = computed(() => {
         >
           <img :src="CalendarDays" alt="calendar icon" class="w-10 h-10 mb-3 opacity-30" />
           <p class="font-medium">No schedule data yet</p>
-          <p class="text-sm mt-1">This section will display subjects after API integration.</p>
+          <p class="text-sm mt-1">Apply scheduler to show subjects for the selected day.</p>
         </div>
       </div>
     </div>
@@ -679,42 +1166,67 @@ const hoveredPoint = computed(() => {
         </div>
       </div>
 
-      <div v-if="documentHistory.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
-        <div
-          v-for="(doc, index) in documentHistory"
-          :key="index"
-          class="rounded-2xl bg-[#f3ecff] p-4 flex flex-col justify-between min-h-[170px]"
-        >
-          <div>
-            <h4 class="font-medium line-clamp-2 text-[#2f2f2f]">{{ doc.title }}</h4>
-            <p class="text-sm mt-2 text-[#6b7280]">{{ doc.date }}</p>
+      <div v-if="documentHistory.length" class="overflow-x-auto pb-2">
+        <div class="flex gap-6 min-w-max">
+          <div
+            v-for="(doc, index) in documentHistory"
+            :key="doc.id"
+            class="w-[280px] rounded-2xl p-3 flex flex-col justify-between h-[170px] overflow-hidden font-inter text-left"
+            :class="
+              index % 2 === 0
+                ? 'bg-[#5c01d51a] text-[#404040]'
+                : 'bg-[#6460f41a] text-[#404040]'
+            "
+          >
+            <div class="flex flex-col gap-2">
+              <div class="text-base font-medium leading-6 line-clamp-2">
+                {{ doc.title || doc.material_title }}
+              </div>
+
+              <div class="text-sm opacity-80">
+                {{ new Date(doc.created_at).toLocaleString() }}
+              </div>
+            </div>
+
+            <button
+              @click="goToConversation(doc.id)"
+              class="mt-3 self-start rounded-lg bg-[#171717] text-white px-3 py-1.5 text-sm font-medium hover:bg-black/80 transition cursor-pointer"
+            >
+              View details
+            </button>
           </div>
 
-          <button
-            class="mt-4 px-3 py-2 rounded-lg bg-gray-900 text-sm font-medium text-white hover:bg-gray-800 transition self-start"
+          <div
+            @click="openUploadPicker"
+            class="w-[280px] rounded-2xl border border-dashed border-gray-300 p-4 h-[170px] flex flex-col items-center justify-center text-center text-[#404040] cursor-pointer hover:bg-gray-50 transition"
           >
-            View details
-          </button>
-        </div>
-
-        <div
-          class="rounded-2xl border border-dashed border-gray-300 p-4 min-h-[170px] flex flex-col items-center justify-center text-center text-gray-500 cursor-pointer hover:bg-gray-50 transition"
-        >
-          <img :src="Plus" alt="add icon" class="w-10 h-10 mb-3 opacity-30" />
-          <p class="text-sm font-medium">Add new document</p>
+            <img :src="Document" class="w-15 h-15 mb-3 opacity-30" />
+            <p class="text-sm font-medium">
+              {{ isUploadingDocument ? 'Uploading...' : 'Add new document' }}
+            </p>
+          </div>
         </div>
       </div>
 
       <div
         v-else
-        class="min-h-[220px] flex flex-col items-center justify-center text-center text-gray-500"
+        class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6"
       >
-        <img :src="Document" alt="document icon" class="w-10 h-10 mb-3 opacity-30" />
-        <p class="font-medium">No extraction history yet</p>
-        <p class="text-sm mt-1">
-          This section is ready but will display real data only after API integration.
-        </p>
+        <div
+          @click="openUploadPicker"
+          class="rounded-2xl border border-dashed border-gray-300 p-4 min-h-[170px] flex flex-col items-center justify-center text-center text-[#404040] cursor-pointer hover:bg-gray-50 transition"
+        >
+          <img :src="Document" alt="add icon" class="w-15 h-15 mb-3 opacity-30" />
+          <p class="text-sm font-medium">{{ isUploadingDocument ? 'Uploading...' : 'Add new document' }}</p>
+        </div>
       </div>
     </div>
   </div>
+  <input
+    ref="uploadInputRef"
+    type="file"
+    class="hidden"
+    accept=".pdf,.txt,.docx,.md"
+    @change="handleDashboardFileUpload"
+  />
 </template>

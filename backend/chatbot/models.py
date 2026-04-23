@@ -25,7 +25,7 @@ class MaterialChunk(models.Model):
     order = models.IntegerField()
     text = models.TextField()
 
-    embedding = models.JSONField(null=True, blank=True)  # 👈 thêm dòng này
+    embedding = models.JSONField(null=True, blank=True)  
 
     class Meta:
         ordering = ["order"]
@@ -49,3 +49,38 @@ class Message(models.Model):
     mode = models.CharField(max_length=20, choices=MODE_CHOICES, default="CHAT")
     content = models.JSONField()  
     created_at = models.DateTimeField(auto_now_add=True)
+    
+class ConversationMemory(models.Model):
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="memories"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversation_memories"
+    )
+
+    source_message = models.ForeignKey(
+        Message,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="memory_entries"
+    )
+
+    memory_type = models.CharField(
+        max_length=30,
+        default="fact"
+    )  # fact, preference, task, summary, profile
+
+    text = models.TextField()
+    embedding = models.JSONField(null=True, blank=True)
+
+    importance = models.FloatField(default=1.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-importance", "-updated_at"]

@@ -2,7 +2,7 @@ import re
 import math
 from collections import OrderedDict
 
-from .models import MaterialChunk
+from .models import MaterialChunk, ConversationMemory
 from .local_llm import generate_llm_answer
 
 try:
@@ -288,12 +288,87 @@ def _prepare_chunk_record(chunk, score: float, semantic_score: float = 0.0, keyw
         "semantic_score": float(semantic_score),
         "keyword_score": float(keyword_score),
     }
+    
+def _query_needs_multi_hop(user_message: str, conversation_history=None) -> bool:
+    q = _normalize_text(user_message)
+    qtype = _query_type(user_message)
 
+    if detect_overview_query(user_message):
+        return False
+    if qtype == "compare":
+        return True
+    if qtype in {"summary", "explain", "keypoints"}:
+        return True
+    if _is_follow_up_document_query(q):
+        return True
+
+    markers = [
+        "why", "how", "relationship", "impact", "cause", "effect",
+        "vì sao", "tại sao", "liên hệ", "ảnh hưởng", "tác động", "so sánh"
+    ]
+    return any(m in q for m in markers)
+
+def _finalize_ranked_results(query: str, candidates, top_n: int):
+    if not candidates:
+        return []
+
+    unique = []
+    seen_ids = set()
+
+    for item in candidates:
+        cid = item["chunk"].id
+        if cid in seen_ids:
+            continue
+        unique.append(item)
+        seen_ids.add(cid)
+
+    reranked = rerank_chunks(query, unique, top_n=max(len(unique), top_n))
+    return reranked[:top_n]
 
 def retrieve_document_overview_chunks(material_id: int, limit: int = 6):
     chunks = MaterialChunk.objects.filter(material_id=material_id).only("id", "text", "order").order_by("order")[:limit]
     return [_prepare_chunk_record(c, score=999.0) for c in chunks]
 
+def retrieve_balanced_overview_chunks(material_id: int, limit: int = 18):
+    chunks = list(
+        MaterialChunk.objects.filter(material_id=material_id)
+        .only("id", "text", "order")
+        .order_by("order")
+    )
+    if not chunks:
+        return []
+
+    if len(chunks) <= limit:
+        return [_prepare_chunk_record(c, score=999.0) for c in chunks]
+
+    selected = []
+    seen_ids = set()
+
+    def add_chunk(chunk):
+        if chunk.id in seen_ids:
+            return
+        selected.append(_prepare_chunk_record(chunk, score=999.0))
+        seen_ids.add(chunk.id)
+
+    head_count = 4
+    for c in chunks[:head_count]:
+        add_chunk(c)
+
+    tail_count = 4
+    for c in chunks[-tail_count:]:
+        add_chunk(c)
+
+    remaining_slots = max(0, limit - len(selected))
+    if remaining_slots > 0:
+        middle = chunks[head_count: len(chunks) - tail_count if tail_count > 0 else len(chunks)]
+        if middle:
+            for i in range(remaining_slots):
+                idx = int(i * len(middle) / max(remaining_slots, 1))
+                idx = min(idx, len(middle) - 1)
+                add_chunk(middle[idx])
+
+    selected.sort(key=lambda x: getattr(x["chunk"], "order", 10**9))
+    return selected[:limit]
 
 def _extract_reference_focus(conversation_history) -> str:
     """
@@ -459,24 +534,55 @@ def expand_with_neighbor_chunks(material_id: int, retrieved_chunks, window: int 
     results.sort(key=lambda x: (getattr(x["chunk"], "order", 10**9), -x["score"]))
     return results[:limit]
 
-
 def retrieve_for_chat(material_id: int, query: str, k: int = 4, conversation_history=None):
     rewritten_query = rewrite_user_query(query, conversation_history=conversation_history)
-    primary = retrieve_top_chunks(material_id, rewritten_query, k=k)
+
+    if detect_overview_query(rewritten_query):
+        first_chunks = retrieve_document_overview_chunks(material_id, limit=4)
+        last_chunks = MaterialChunk.objects.filter(material_id=material_id)\
+            .order_by("-order")[:4]
+
+        last_chunks = [
+            _prepare_chunk_record(c, score=999.0)
+            for c in reversed(last_chunks)
+        ]
+
+        return first_chunks + last_chunks
+
+    recall_k = max(k * 3, 12)
+    primary = retrieve_top_chunks(material_id, rewritten_query, k=recall_k)
     if not primary:
         return []
 
-    if detect_overview_query(rewritten_query):
-        return primary[:max(6, k)]
+    primary = _finalize_ranked_results(rewritten_query, primary, top_n=max(6, k))
 
-    expanded = expand_with_neighbor_chunks(material_id, primary, window=1, limit=max(6, k + 2))
-    return expanded if expanded else primary
+    expanded = expand_with_neighbor_chunks(
+        material_id,
+        primary,
+        window=1,
+        limit=max(8, k + 4),
+    )
 
+    final_candidates = expanded if expanded else primary
+    final_ranked = _finalize_ranked_results(
+        rewritten_query,
+        final_candidates,
+        top_n=max(6, k),
+    )
+    return final_ranked
 
 def is_out_of_scope(retrieved_chunks, min_score: float = 0.6):
     if not retrieved_chunks:
         return True
-    return float(retrieved_chunks[0].get("score", 0)) < min_score
+
+    top = retrieved_chunks[0]
+    rerank_score = float(top.get("rerank_score", 0.0))
+    base_score = float(top.get("score", 0.0))
+
+    if rerank_score > 0:
+        return rerank_score < 1.2
+
+    return base_score < min_score
 
 
 def suggest_title_and_summary(material):
@@ -601,47 +707,347 @@ def generate_response(
         return content
 
     if mode == "FLASHCARD":
+        llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
+
+        prompt = """
+    Create 4 flashcards from the document.
+
+    Rules:
+    - Each flashcard must include:
+    - front: a short study question
+    - back: a short answer based only on the document
+    - Keep each answer concise
+    - Avoid duplicate ideas
+    - Use simple, study-friendly wording
+
+    Format exactly:
+    Q: ...
+    A: ...
+
+    Q: ...
+    A: ...
+    """.strip()
+
+        text = generate_llm_answer(
+            prompt,
+            llm_chunks,
+            query_type="qa",
+            conversation_history=conversation_history,
+        )
+
         items = []
-        for c in chunks[:3]:
-            cleaned = clean_chunk_text(c.text)
+        for block in text.split("Q:"):
+            block = block.strip()
+            if not block or "A:" not in block:
+                continue
+            q, a = block.split("A:", 1)
             items.append({
-                "front": "Ý chính của phần này là gì?",
-                "back": cleaned[:220].strip(),
-                "tags": ["mvp"],
-                "chunk_id": c.id,
+                "front": q.strip(),
+                "back": a.strip(),
+                "tags": ["auto"],
             })
-        return {"items": items}
+
+        return {"items": items[:4]}
 
     if mode == "QUIZ":
-        return {
-            "items": [
-                {
+        llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
+
+        prompt = """
+    Create 3 multiple-choice questions based only on the document.
+
+    Rules:
+    - Each question must have exactly 4 choices
+    - Only 1 correct answer
+    - Questions should test understanding of the document
+    - Do not use outside knowledge
+
+    Format exactly:
+    Q: ...
+    A. ...
+    B. ...
+    C. ...
+    D. ...
+    Answer: A
+    """.strip()
+
+        text = generate_llm_answer(
+            prompt,
+            llm_chunks,
+            query_type="qa",
+            conversation_history=conversation_history,
+        )
+
+        items = []
+        blocks = text.split("Q:")
+        for block in blocks:
+            block = block.strip()
+            if not block or "Answer:" not in block:
+                continue
+
+            lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+            if not lines:
+                continue
+
+            question = lines[0]
+            choices = []
+            answer_index = None
+
+            for line in lines[1:]:
+                if line.startswith(("A.", "B.", "C.", "D.")):
+                    choices.append(line[2:].strip())
+                elif line.startswith("Answer:"):
+                    ans = line.replace("Answer:", "").strip().upper()
+                    mapping = {"A": 0, "B": 1, "C": 2, "D": 3}
+                    answer_index = mapping.get(ans)
+
+            if len(choices) == 4 and answer_index is not None:
+                items.append({
                     "type": "mcq",
-                    "question": "Nội dung chính của phần liên quan trong tài liệu là gì?",
-                    "choices": [
-                        "Khái niệm và mục tiêu chính",
-                        "Mã nguồn hệ thống",
-                        "Hướng dẫn cài đặt IDE",
-                        "Thông tin ngoài tài liệu",
-                    ],
-                    "answer_index": 0,
-                }
-            ]
-        }
+                    "question": question,
+                    "choices": choices,
+                    "answer_index": answer_index,
+                })
+
+        return {"items": items[:3]}
 
     if mode == "MINDMAP":
-        cleaned_titles = []
-        for c in chunks:
-            cleaned = clean_chunk_text(c.text)
-            first_line = cleaned.splitlines()[0] if cleaned else f"Chunk {c.id}"
-            cleaned_titles.append({
-                "title": first_line[:80],
-                "children": [],
-            })
+        llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
 
-        return {
-            "title": "Mindmap (MVP)",
-            "children": cleaned_titles,
-        }
+        prompt = """
+    Create a study mindmap from the document.
+
+    Rules:
+    - Return 1 main topic
+    - Return 4 to 6 main branches
+    - Each branch should have 2 short subpoints
+    - Use only the document content
+
+    Format exactly:
+    Main: ...
+    - Branch 1
+    - Subpoint 1
+    - Subpoint 2
+    - Branch 2
+    - Subpoint 1
+    - Subpoint 2
+    """.strip()
+
+        text = generate_llm_answer(
+            prompt,
+            llm_chunks,
+            query_type="summary",
+            conversation_history=conversation_history,
+        )
+
+        root = {"title": "Mindmap", "children": []}
+        current_branch = None
+
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip()
+
+            if line.startswith("Main:"):
+                root["title"] = line.replace("Main:", "", 1).strip() or "Mindmap"
+            elif line.startswith("- ") and not line.startswith("  - "):
+                current_branch = {
+                    "title": line[2:].strip(),
+                    "children": [],
+                }
+                root["children"].append(current_branch)
+            elif raw_line.startswith("  - ") and current_branch is not None:
+                current_branch["children"].append({
+                    "title": raw_line.strip()[2:].strip(),
+                    "children": [],
+                })
+
+        return root
 
     return {"text": "Unsupported mode"}
+
+def choose_dynamic_k(user_message: str, conversation_history=None) -> int:
+    q = _normalize_text(user_message)
+    qtype = _query_type(user_message)
+
+    if detect_overview_query(user_message):
+        return 18
+    if qtype == "compare":
+        return 8
+    if qtype in {"summary", "explain", "keypoints"}:
+        return 8
+    if detect_factual_query(user_message):
+        return 3
+    if _is_follow_up_document_query(q):
+        return 6
+    return 4
+
+
+def rerank_chunks(query: str, candidates, top_n: int = 6):
+    q_low = _normalize_text(query)
+    q_tokens = set(_tokenize(query))
+    reranked = []
+
+    for item in candidates:
+        chunk = item["chunk"]
+        raw_text = (chunk.text or "")[:3000]
+        cleaned = clean_chunk_text(raw_text)
+        low = cleaned.lower()
+        tokens = set(_tokenize(cleaned))
+
+        overlap = len(q_tokens & tokens)
+        exact_boost = 4.0 if q_low and q_low in low else 0.0
+
+        heading_boost = 0.0
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+        if lines:
+            first = lines[0].lower()
+            if any(tok in first for tok in q_tokens):
+                heading_boost += 2.0
+
+        density_boost = min(overlap * 0.25, 3.0)
+
+        reranked.append({
+            **item,
+            "rerank_score": item.get("score", 0.0) + exact_boost + heading_boost + density_boost,
+        })
+
+    reranked.sort(key=lambda x: x["rerank_score"], reverse=True)
+    return reranked[:top_n]
+
+def extract_followup_search_clues(retrieved_chunks, max_clues: int = 3):
+    clues = []
+    seen = set()
+
+    for item in retrieved_chunks:
+        chunk = item["chunk"]
+        cleaned = clean_chunk_text(chunk.text)
+
+        for line in cleaned.splitlines():
+            line = line.strip()
+            if len(line) < 12:
+                continue
+
+            lowered = line.lower()
+            if lowered in seen:
+                continue
+
+            if _looks_like_heading(line) or len(clues) < max_clues:
+                clues.append(line[:120])
+                seen.add(lowered)
+
+            if len(clues) >= max_clues:
+                return clues
+
+    return clues
+
+def retrieve_multi_hop(material_id: int, query: str, k: int = 4, conversation_history=None):
+    rewritten_query = rewrite_user_query(query, conversation_history=conversation_history)
+
+    recall_k = max(k * 3, 12)
+    hop1 = retrieve_top_chunks(material_id, rewritten_query, k=recall_k)
+    if not hop1:
+        return []
+
+    hop1 = _finalize_ranked_results(rewritten_query, hop1, top_n=max(6, k))
+    clues = extract_followup_search_clues(hop1, max_clues=2)
+
+    hop2_all = []
+    for clue in clues:
+        second_query = f"{rewritten_query} {clue}"
+        hop2_hits = retrieve_top_chunks(material_id, second_query, k=8)
+        hop2_all.extend(hop2_hits)
+
+    merged = []
+    seen_ids = set()
+    for item in hop1 + hop2_all:
+        cid = item["chunk"].id
+        if cid in seen_ids:
+            continue
+        merged.append(item)
+        seen_ids.add(cid)
+
+    merged = _finalize_ranked_results(rewritten_query, merged, top_n=max(8, k + 2))
+
+    expanded = expand_with_neighbor_chunks(
+        material_id,
+        merged,
+        window=1,
+        limit=max(10, k + 4),
+    )
+
+    final_candidates = expanded if expanded else merged
+    final_ranked = _finalize_ranked_results(
+        rewritten_query,
+        final_candidates,
+        top_n=max(6, k),
+    )
+    return final_ranked
+
+def retrieve_for_level2_chat(material_id: int, query: str, k: int = 4, conversation_history=None):
+    if detect_overview_query(query):
+        return retrieve_for_chat(
+            material_id,
+            query,
+            k=max(8, k),
+            conversation_history=conversation_history,
+        )
+
+    if _query_needs_multi_hop(query, conversation_history=conversation_history):
+        return retrieve_multi_hop(
+            material_id,
+            query,
+            k=k,
+            conversation_history=conversation_history,
+        )
+
+    return retrieve_for_chat(
+        material_id,
+        query,
+        k=k,
+        conversation_history=conversation_history,
+    )
+
+def retrieve_memory_for_chat(conversation_id: int, query: str, top_k: int = 4):
+    memories = ConversationMemory.objects.filter(conversation_id=conversation_id).only(
+        "id", "text", "embedding", "importance", "memory_type"
+    )
+
+    if not query.strip():
+        return []
+
+    query_embedding = None
+    if get_embedding is not None:
+        try:
+            query_embedding = get_embedding(query[:800])
+        except Exception:
+            query_embedding = None
+
+    scored = []
+    for mem in memories:
+        text = (mem.text or "").strip()
+        if not text:
+            continue
+
+        keyword_score = _keyword_score(query, text)
+        semantic_score = 0.0
+        if query_embedding is not None and getattr(mem, "embedding", None):
+            semantic_score = _cosine_similarity(query_embedding, mem.embedding)
+
+        score = semantic_score * 10.0 + keyword_score * 0.35 + float(mem.importance or 1.0)
+
+        if score > 0:
+            scored.append({
+                "memory": mem,
+                "score": score,
+                "semantic_score": semantic_score,
+                "keyword_score": keyword_score,
+            })
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:top_k]
+
+def build_memory_context(memory_hits):
+    lines = []
+    for item in memory_hits:
+        mem = item["memory"]
+        if mem.text:
+            lines.append(f"- {mem.text.strip()}")
+    return "\n".join(lines).strip()

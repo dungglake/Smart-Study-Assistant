@@ -62,7 +62,24 @@ const activeKey = computed(() => {
 })
 
 const goToPage = (path: string) => {
-  router.push(path)
+  if (path === '/dashboard') {
+    router.push({
+      path: '/dashboard',
+      query: {
+        date: new Date().toISOString().slice(0, 10),
+      },
+    })
+    return
+  }
+
+  if (path === '/extractor') {
+    router.push({
+      path: '/extractor',
+    })
+    return
+  }
+
+  router.push({ path })
 }
 
 const toggleSidebar = () => {

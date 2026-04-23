@@ -32,6 +32,16 @@ export const uploadMaterial = async (file: File, title?: string) => {
     return res.data
 }
 
+export const renameMaterial = async (id: number, title: string) => {
+    const res = await api.patch(`/materials/${id}/`, { title })
+    return res.data
+}
+
+export const deleteMaterial = async (id: number) => {
+    const res = await api.delete(`/materials/${id}/`)
+    return res.data
+}
+
 export const getConversations = async (materialId?: number) => {
     const params = materialId ? { material_id: materialId } : {}
     const res = await api.get('/conversations/', { params })
@@ -109,10 +119,7 @@ export const streamChatMessage = async (
         buffer = events.pop() || ''
 
         for (const event of events) {
-            const line = event
-                .split('\n')
-                .find((l) => l.startsWith('data: '))
-
+            const line = event.split('\n').find((l) => l.startsWith('data: '))
             if (!line) continue
 
             const raw = line.replace(/^data:\s*/, '')

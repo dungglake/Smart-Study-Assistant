@@ -9,6 +9,8 @@ from .views import (
     get_plan_week,
     delete_plan_week,
     autosave_week,
+    rename_subject_in_week,
+    delete_subject_from_week,
     week_status,
     week_summary,
 )
@@ -28,4 +30,7 @@ urlpatterns = [
     path("week/autosave", autosave_week, name="week-autosave"),
     path("week/status", week_status, name="week-status"),
     path("week/summary", week_summary, name="week-summary"),
+    
+    path("subject-actions/delete", delete_subject_from_week, name="subject-delete-from-week"),
+    path("subject-actions/rename", rename_subject_in_week, name="subject-rename-in-week"),
 ]

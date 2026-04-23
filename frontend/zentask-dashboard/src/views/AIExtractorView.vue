@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AiContentLibrary from '@/components/ai-content/AiContentLibrary.vue'
 import AiContentEmptyState from '@/components/ai-content/AiContentEmptyState.vue'
 import {
-  deleteConversation,
+  deleteMaterial,
   getConversationMessages,
   getConversations,
   getMaterialDetail,
-  renameConversation,
+  renameMaterial,
   streamChatMessage,
   uploadMaterial,
 } from '@/services/extractorApi'
@@ -39,7 +40,8 @@ const renameValue = ref('')
 const isSending = ref(false)
 const isUploading = ref(false)
 const loadingMessages = ref(false)
-
+const route = useRoute()
+const router = useRouter()
 const processingMaterialIds = ref<number[]>([])
 const pollingTimer = ref<number | null>(null)
 
@@ -61,6 +63,16 @@ const loadConversations = async (preferLatest = false) => {
     if (!conversations.value.length) {
       selectedConversationId.value = null
       messages.value = []
+      return
+    }
+
+    const queryConversationId = Number(route.query.conversation_id)
+
+    if (
+      queryConversationId &&
+      conversations.value.some((item) => item.id === queryConversationId)
+    ) {
+      selectedConversationId.value = queryConversationId
       return
     }
 
@@ -164,6 +176,14 @@ const handleUploadMore = async (files: File[]) => {
 
 const handleSelectConversation = async (id: number) => {
   selectedConversationId.value = id
+
+  await router.replace({
+    path: '/extractor',
+    query: {
+      conversation_id: String(id),
+    },
+  })
+
   conversations.value = conversations.value.map((item) => ({
     ...item,
     menuOpen: false,
@@ -199,10 +219,21 @@ const handleSubmitRename = async (id: number) => {
   if (!title) return
 
   try {
-    const updated = await renameConversation(id, title)
+    const target = conversations.value.find((item) => item.id === id)
+    if (!target) return
+
+    const updated = await renameMaterial(target.material, title)
+
     conversations.value = conversations.value.map((item) =>
-      item.id === id ? { ...item, title: updated.title } : item
+      item.material === target.material
+        ? {
+            ...item,
+            title: updated.title,
+            material_title: updated.title,
+          }
+        : item
     )
+
     handleCancelRename()
   } catch (error) {
     console.error('Rename failed:', error)
@@ -211,10 +242,18 @@ const handleSubmitRename = async (id: number) => {
 
 const handleDeleteConversation = async (id: number) => {
   try {
-    await deleteConversation(id)
-    const wasSelected = selectedConversationId.value === id
+    const target = conversations.value.find((item) => item.id === id)
+    if (!target) return
 
-    conversations.value = conversations.value.filter((item) => item.id !== id)
+    const materialId = target.material
+    const deletedSelectedMaterial =
+      selectedConversation.value?.material === materialId
+
+    await deleteMaterial(materialId)
+
+    conversations.value = conversations.value.filter(
+      (item) => item.material !== materialId
+    )
 
     if (!conversations.value.length) {
       selectedConversationId.value = null
@@ -222,13 +261,27 @@ const handleDeleteConversation = async (id: number) => {
       return
     }
 
-    if (wasSelected) {
+    if (deletedSelectedMaterial) {
       selectedConversationId.value = conversations.value[0].id
     }
   } catch (error) {
     console.error('Delete failed:', error)
   }
 }
+
+watch(selectedConversationId, async (id) => {
+  if (!id) return
+
+  const currentQueryId = Number(route.query.conversation_id)
+  if (currentQueryId === id) return
+
+  await router.replace({
+    path: '/extractor',
+    query: {
+      conversation_id: String(id),
+    },
+  })
+})
 
 const handleSendMessage = async (payload: {
   conversation_id: number
@@ -293,7 +346,7 @@ const handleSendMessage = async (payload: {
           messages.value[lastIndex] = {
             ...last,
             content: {
-              text: 'Không thể nhận phản hồi realtime từ server.',
+              text: 'Cannot receive realtime feedback from server.',
             },
           }
         }
@@ -308,7 +361,7 @@ const handleSendMessage = async (payload: {
       {
         role: 'assistant',
         mode: 'CHAT',
-        content: { text: 'Không thể kết nối tới chat stream.' },
+        content: { text: 'Cannot connect to chat stream.' },
       },
     ]
   } finally {

@@ -19,7 +19,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
-  avatarSrc: 'https://i.pravatar.cc/100?img=12',
+  avatarSrc: '',
   hasNotification: true,
 })
 
@@ -33,7 +33,7 @@ const displayName = ref('')
 
 const syncAvatar = () => {
   const saved = localStorage.getItem('avatar')
-  avatar.value = saved || 'https://i.pravatar.cc/100?img=12'
+  avatar.value = saved || props.avatarSrc
 }
 
 const syncDisplayName = () => {

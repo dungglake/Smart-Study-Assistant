@@ -148,7 +148,6 @@ async function loadSavedSubjects() {
 
     closeAddForm()
     openActionId.value = null
-    emit('save', localSubjects.value)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Cannot load saved subjects'
     saveError.value = message
@@ -193,6 +192,9 @@ async function saveSubjectsToDb(subjects: SubjectItem[]) {
     }
 
     emit('saved', subjects)
+    window.dispatchEvent(new CustomEvent('planner-plan-updated', {
+      detail: { weekStart: props.weekStart }
+    }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Cannot save subjects'
     saveError.value = message

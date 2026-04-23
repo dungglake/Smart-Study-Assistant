@@ -25,6 +25,18 @@ function openSubjectList() {
   isTimeConfigOpen.value = false
   isSubjectListOpen.value = true
 }
+
+function closeGeneratePopup() {
+  isGeneratePopupOpen.value = false
+}
+
+function handleGeneratedSummary(payload: any) {
+  latestGeneratedSummary.value = payload
+}
+
+function handleSaveSubjects(payload: any[]) {
+  savedSubjects.value = payload
+}
 </script>
 
 <template>
@@ -45,11 +57,11 @@ function openSubjectList() {
         :generated-summary="latestGeneratedSummary"
         @close-time-config="isTimeConfigOpen = false"
         @close-subject-list="isSubjectListOpen = false"
-        @save-subjects="savedSubjects = $event"
-        @close-generate-popup="isGeneratePopupOpen = false"
+        @save-subjects="handleSaveSubjects"
+        @close-generate-popup="closeGeneratePopup"
         @open-time-config="openTimeConfig"
         @open-subject-list="openSubjectList"
-        @generated-summary="latestGeneratedSummary = $event"
+        @generated-summary="handleGeneratedSummary"
       />
     </router-view>
   </div>

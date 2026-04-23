@@ -18,7 +18,12 @@ from .serializers import (
     MessageSerializer,
 )
 from .utils import extract_text_from_file, chunk_text
-from .engine import retrieve_for_chat, generate_response, suggest_title_and_summary
+from .engine import (
+    retrieve_for_level2_chat,
+    generate_response,
+    suggest_title_and_summary,
+    choose_dynamic_k,
+)
 
 try:
     from .embedding import get_embedding
@@ -139,9 +144,31 @@ class MaterialDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
 
+    def get_object(self, request, pk):
+        return Material.objects.get(pk=pk, user=request.user)
+
     def get(self, request, pk):
-        material = Material.objects.get(pk=pk, user=request.user)
+        material = self.get_object(request, pk)
         return Response(MaterialSerializer(material).data)
+
+    def patch(self, request, pk):
+        material = self.get_object(request, pk)
+
+        title = (request.data.get("title") or "").strip()
+        if not title:
+            return Response({"detail": "title is required"}, status=400)
+
+        material.title = title
+        material.save(update_fields=["title"])
+
+        material.conversations.all().update(title=title)
+
+        return Response(MaterialSerializer(material).data)
+
+    def delete(self, request, pk):
+        material = self.get_object(request, pk)
+        material.delete()
+        return Response(status=204)
 
 
 class ConversationListView(APIView):
@@ -196,7 +223,10 @@ class ConversationDetailView(APIView):
         update_fields = []
 
         if title is not None:
-            conv.title = title.strip()
+            clean_title = title.strip()
+            conv.title = clean_title
+            conv.material.title = clean_title
+            conv.material.save(update_fields=["title"])
             update_fields.append("title")
 
         if summary is not None:
@@ -236,7 +266,13 @@ class ChatView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
-        retrieved_chunks = retrieve_for_chat(conv.material_id, user_message, k=4, conversation_history=history)
+        dynamic_k = choose_dynamic_k(user_message, conversation_history=history)
+        retrieved_chunks = retrieve_for_level2_chat(
+            conv.material_id,
+            user_message,
+            k=dynamic_k,
+            conversation_history=history,
+        )
         content = generate_response(
             mode,
             user_message,
@@ -283,7 +319,13 @@ class ChatStreamView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
-        retrieved_chunks = retrieve_for_chat(conv.material_id, user_message, k=4, conversation_history=history)
+        dynamic_k = choose_dynamic_k(user_message, conversation_history=history)
+        retrieved_chunks = retrieve_for_level2_chat(
+            conv.material_id,
+            user_message,
+            k=dynamic_k,
+            conversation_history=history,
+        )
         content = generate_response(
             mode,
             user_message,
