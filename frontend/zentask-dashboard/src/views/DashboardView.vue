@@ -22,7 +22,6 @@ const historyFilter = ref("This week");
 const isHistoryDropdownOpen = ref(false);
 const historyDropdownRef = ref(null);
 const hoveredBar = ref(null);
-const activeChartDay = ref("Monday");
 const chartWrapRef = ref(null);
 const chartRenderWidth = ref(860);
 const isChartDropdownOpen = ref(false);
@@ -678,8 +677,8 @@ const yTicks = computed(() => Array.from({ length: 7 }, (_, i) => {
 }));
 
 const hoveredPoint = computed(() => {
-  const targetDay = hoveredBar.value || activeChartDay.value;
-  return chartPoints.value.find(item => item.day === targetDay) || chartPoints.value[0] || null;
+  if (!hoveredBar.value) return null;
+  return chartPoints.value.find((item) => item.day === hoveredBar.value) || null;
 });
 
 const tooltipPosition = computed(() => {
@@ -870,7 +869,7 @@ const tooltipPosition = computed(() => {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-[1.6fr_1.12fr] gap-6 mb-6">
+    <div class="grid grid-cols-1 xl:grid-cols-[1.35fr_1.25fr] gap-6 mb-6">
       <div class="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold">Study time</h3>
@@ -928,7 +927,7 @@ const tooltipPosition = computed(() => {
           <div ref="chartWrapRef" class="w-full overflow-x-auto pb-1">
             <svg
               :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
-              class=" block w-full min-w-[760px]"
+              class=" block w-full min-w-[660px]"
             >
               <defs>
                 <linearGradient id="studyAreaFill" x1="0" y1="0" x2="0" y2="1">
@@ -996,7 +995,6 @@ const tooltipPosition = computed(() => {
                   class="cursor-pointer"
                   @mouseenter="hoveredBar = point.day"
                   @mouseleave="hoveredBar = null"
-                  @click="activeChartDay = point.day"
                 />
               </g>
 
@@ -1066,7 +1064,7 @@ const tooltipPosition = computed(() => {
       <div class="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
         <div class="mb-6">
           <h3 class="text-xl font-semibold">Today's study schedule</h3>
-          <p class="text-sm text-gray-500 mt-1">{{ todayLabel }}</p>
+          <p class="text-sm text-[#171717] mt-1">{{ todayLabel }}</p>
         </div>
 
         <div v-if="isScheduleLoading" class="h-[320px] flex items-center justify-center text-gray-500">
@@ -1090,7 +1088,7 @@ const tooltipPosition = computed(() => {
               </h4>
             </div>
 
-            <div class="pt-3 space-y-2 text-sm text-gray-700">
+            <div class="pt-3 space-y-2 text-sm text-black">
               <p>Time: {{ item.time }}</p>
               <div class="flex items-center gap-2">
                 <span>Type:</span>

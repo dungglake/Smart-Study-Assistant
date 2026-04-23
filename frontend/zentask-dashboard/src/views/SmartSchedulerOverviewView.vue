@@ -491,19 +491,26 @@ function getScheduleBlockClass(slot: any) {
   return 'bg-[#20B2AA] text-white'
 }
 
-function getScheduleBlockStyle(slot: any) {
-  const startMinutes = toMinutes(slot.start)
-  const endMinutes = toMinutes(slot.end)
-  const visibleStart = scheduleStartHour * 60
-  const duration = Math.max(30, endMinutes - startMinutes)
+function isCompactSlot(slot: any) {
+  return getSlotDurationMinutes(slot) <= 45
+}
 
-  const top = ((startMinutes - visibleStart) / 60) * scheduleRowHeight
-  const height = (duration / 60) * scheduleRowHeight
+function getScheduleBlockInlineStyle(slot: any) {
+  const duration = getSlotDurationMinutes(slot)
+  const rawHeight = (duration / 60) * scheduleRowHeight
 
   return {
-    top: `${top}px`,
-    height: `${height}px`,
+    top: `${(toMinutes(slot.start) % 60) / 60 * scheduleRowHeight}px`,
+    height: `${Math.max(isCompactSlot(slot) ? 60 : 72, rawHeight)}px`,
   }
+}
+
+function getScheduleBlockContentClass(slot: any) {
+  if (isCompactSlot(slot)) {
+    return 'flex flex-col justify-center gap-0.5 px-2 py-1.5'
+  }
+
+  return 'flex flex-col justify-start gap-1 p-2'
 }
 
 function getSlotsForDate(date: string) {
@@ -1028,29 +1035,29 @@ async function saveRenamedSubject() {
               <div
                 v-for="slot in getSlotsStartingAt(item.fullDate, hourItem.hour)"
                 :key="`${slot.id || slot.subject_id}-${slot.start}-${slot.end}`"
-                class="absolute left-2 right-2 z-[3] rounded-xl flex flex-col items-start p-2 box-border gap-1 text-left font-inter shadow-sm"
-                :class="getScheduleBlockClass(slot)"
-                :style="{
-                  top: `${(toMinutes(slot.start) % 60) / 60 * scheduleRowHeight}px`,
-                  height: `${Math.max(48, (getSlotDurationMinutes(slot) / 60) * scheduleRowHeight)}px`,
-                }"
+                class="absolute left-2 right-2 z-[3] rounded-xl box-border text-left font-inter shadow-sm overflow-hidden"
+                :class="[getScheduleBlockClass(slot), getScheduleBlockContentClass(slot)]"
+                :style="getScheduleBlockInlineStyle(slot)"
               >
-                <div class="self-stretch flex items-center justify-center">
-                  <div
-                    class="flex-1 relative leading-6 font-medium"
-                    :class="getSlotDurationMinutes(slot) < 120 ? 'overflow-hidden text-ellipsis whitespace-nowrap' : ''"
-                  >
-                    {{ slot.subject_name || 'Subject' }}
-                  </div>
+                <div
+                  class="w-full font-medium"
+                  :class="isCompactSlot(slot)
+                    ? 'text-[13px] leading-4 overflow-hidden text-ellipsis whitespace-nowrap'
+                    : getSlotDurationMinutes(slot) < 120
+                      ? 'leading-5 overflow-hidden text-ellipsis whitespace-nowrap'
+                      : 'leading-6'"
+                >
+                  {{ slot.subject_name || 'Subject' }}
                 </div>
 
                 <div
-                  class="flex items-center justify-center text-right text-xs"
-                  :class="getSlotDurationMinutes(slot) >= 120 ? 'text-[#8c8c8c]' : 'text-white'"
+                  class="w-full text-xs"
+                  :class="[
+                    getSlotDurationMinutes(slot) >= 120 ? 'text-[#8c8c8c]' : 'text-white',
+                    isCompactSlot(slot) ? 'leading-3' : 'leading-4'
+                  ]"
                 >
-                  <div class="relative leading-4">
-                    {{ formatTimeRange(slot.start, slot.end) }}
-                  </div>
+                  {{ formatTimeRange(slot.start, slot.end) }}
                 </div>
               </div>
             </div>
