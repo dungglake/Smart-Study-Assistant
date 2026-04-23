@@ -46,7 +46,9 @@ def _postprocess_answer(text: str) -> str:
     section = None
 
     for raw in text.splitlines():
-        stripped = " ".join(raw.strip().split())
+        original = raw.rstrip()
+        stripped = " ".join(original.strip().split())
+
         if not stripped:
             lines.append("")
             continue
@@ -74,7 +76,10 @@ def _postprocess_answer(text: str) -> str:
             lines.append(stripped)
             continue
 
-        lines.append(stripped)
+        if original.startswith("  - "):
+            lines.append("  - " + stripped[2:].strip() if stripped.startswith("- ") else original)
+        else:
+            lines.append(stripped)
 
     cleaned = []
     prev_blank = False
@@ -203,6 +208,12 @@ Format exactly like this:
 - ...
 - ...
 """.strip(),
+
+"tool": """
+Follow the user's requested output format exactly.
+Do not add markdown headings unless the user explicitly asked for them.
+Do not convert the output into 'Answer' or 'Supporting points'.
+""".strip(),
     }
 
     style = style_instructions.get(query_type, style_instructions["qa"])
@@ -240,6 +251,9 @@ Rules:
 - When the user asks for the main points, summary, overview, or main themes, synthesize across all provided sections.
 - Do not focus only on the introduction if later sections provide additional themes or examples.
 - Try to cover as many distinct sections or topics as possible when summarizing.
+- If the request is for flashcards or quizzes follow the requested structure exactly.
+- Do not rewrite the output into another template.
+- Use meaningful concept names from the source.
 
 {style}
 """.strip()

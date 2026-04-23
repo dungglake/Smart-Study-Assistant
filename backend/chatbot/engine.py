@@ -689,8 +689,6 @@ def generate_response(
             return {"items": [], "message": OUT_OF_SCOPE_MESSAGE}
         if mode == "QUIZ":
             return {"items": [], "message": OUT_OF_SCOPE_MESSAGE}
-        if mode == "MINDMAP":
-            return {"title": "Mindmap", "children": [], "message": OUT_OF_SCOPE_MESSAGE}
         return {"text": OUT_OF_SCOPE_MESSAGE, "citations": []}
 
     chunks = [item["chunk"] for item in retrieved_chunks]
@@ -731,7 +729,7 @@ def generate_response(
         text = generate_llm_answer(
             prompt,
             llm_chunks,
-            query_type="qa",
+            query_type="tool",
             conversation_history=conversation_history,
         )
 
@@ -773,7 +771,7 @@ def generate_response(
         text = generate_llm_answer(
             prompt,
             llm_chunks,
-            query_type="qa",
+            query_type="tool",
             conversation_history=conversation_history,
         )
 
@@ -809,58 +807,6 @@ def generate_response(
                 })
 
         return {"items": items[:3]}
-
-    if mode == "MINDMAP":
-        llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
-
-        prompt = """
-    Create a study mindmap from the document.
-
-    Rules:
-    - Return 1 main topic
-    - Return 4 to 6 main branches
-    - Each branch should have 2 short subpoints
-    - Use only the document content
-
-    Format exactly:
-    Main: ...
-    - Branch 1
-    - Subpoint 1
-    - Subpoint 2
-    - Branch 2
-    - Subpoint 1
-    - Subpoint 2
-    """.strip()
-
-        text = generate_llm_answer(
-            prompt,
-            llm_chunks,
-            query_type="summary",
-            conversation_history=conversation_history,
-        )
-
-        root = {"title": "Mindmap", "children": []}
-        current_branch = None
-
-        for raw_line in text.splitlines():
-            line = raw_line.rstrip()
-
-            if line.startswith("Main:"):
-                root["title"] = line.replace("Main:", "", 1).strip() or "Mindmap"
-            elif line.startswith("- ") and not line.startswith("  - "):
-                current_branch = {
-                    "title": line[2:].strip(),
-                    "children": [],
-                }
-                root["children"].append(current_branch)
-            elif raw_line.startswith("  - ") and current_branch is not None:
-                current_branch["children"].append({
-                    "title": raw_line.strip()[2:].strip(),
-                    "children": [],
-                })
-
-        return root
-
     return {"text": "Unsupported mode"}
 
 def choose_dynamic_k(user_message: str, conversation_history=None) -> int:

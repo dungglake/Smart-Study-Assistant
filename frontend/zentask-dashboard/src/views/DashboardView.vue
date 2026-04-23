@@ -689,7 +689,7 @@ const tooltipPosition = computed(() => {
 
   return {
     left: hoveredPoint.value.x * scaleX,
-    top: (hoveredPoint.value.y - 138) * scaleY,
+    top: hoveredPoint.value.y * scaleY,
   };
 });
 </script>
@@ -987,9 +987,9 @@ const tooltipPosition = computed(() => {
 
               <g v-for="(point, index) in chartPoints" :key="`hover-zone-${point.day}`">
                 <rect
-                  :x="index === 0 ? chartPaddingLeft : point.x - xStep / 2"
+                  :x="point.x - xStep / 2"
                   :y="chartPaddingTop"
-                  :width="index === 0 || index === chartPoints.length - 1 ? xStep / 2 : xStep"
+                  :width="xStep"
                   :height="innerHeight"
                   fill="transparent"
                   class="cursor-pointer"
@@ -1031,7 +1031,7 @@ const tooltipPosition = computed(() => {
                 top: `${tooltipPosition.top}px`
               }"
             >
-              <div class="relative -translate-x-1/2">
+              <div class="relative -translate-x-1/2 -translate-y-[calc(100%+14px)]">
                 <div
                   class="relative w-[185px] rounded-[20px] border border-[#d9d9d9] bg-white px-4 py-3 shadow-[0_4px_14px_rgba(0,0,0,0.10)]"
                 >

@@ -43,6 +43,24 @@ def get_recent_history(conversation, limit: int = 6):
         history.append({"role": msg.role, "text": text})
     return history
 
+def build_studio_default_title(conv, mode: str) -> str:
+    if mode == "FLASHCARD":
+        count = Message.objects.filter(
+            conversation=conv,
+            role="assistant",
+            mode="FLASHCARD",
+        ).count()
+        return f"Flash card {count + 1}"
+
+    if mode == "QUIZ":
+        count = Message.objects.filter(
+            conversation=conv,
+            role="assistant",
+            mode="QUIZ",
+        ).count()
+        return f"Quiz {count + 1}"
+
+    return ""
 
 def process_material(material_id, user):
     material = Material.objects.get(id=material_id, user=user)
@@ -281,10 +299,13 @@ class ChatView(APIView):
             conversation_history=history,
         )
 
+        default_title = build_studio_default_title(conv, mode)
+
         assistant_msg = Message.objects.create(
             conversation=conv,
             role="assistant",
             mode=mode,
+            title=default_title,
             content=content,
         )
 
@@ -326,6 +347,7 @@ class ChatStreamView(APIView):
             k=dynamic_k,
             conversation_history=history,
         )
+
         content = generate_response(
             mode,
             user_message,
@@ -333,6 +355,25 @@ class ChatStreamView(APIView):
             material_id=conv.material_id,
             conversation_history=history,
         )
+
+        if mode in ["QUIZ", "FLASHCARD"]:
+            default_title = build_studio_default_title(conv, mode)
+
+            assistant_msg = Message.objects.create(
+                conversation=conv,
+                role="assistant",
+                mode=mode,
+                title=default_title,
+                content=content,
+            )
+
+            return Response(
+                {
+                    "user_message": MessageSerializer(user_msg).data,
+                    "assistant_message": MessageSerializer(assistant_msg).data,
+                },
+                status=200,
+            )
 
         full_text = ""
         if isinstance(content, dict):
@@ -380,7 +421,6 @@ class ChatStreamView(APIView):
         response["X-Accel-Buffering"] = "no"
         return response
 
-
 class ConversationMessagesView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -389,3 +429,32 @@ class ConversationMessagesView(APIView):
         conv = Conversation.objects.get(id=pk, user=request.user)
         messages = conv.messages.order_by("created_at")
         return Response(MessageSerializer(messages, many=True).data)
+
+class StudioMessageDetailView(APIView):
+    authentication_classes = [JWTAuthentication, SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, request, pk):
+        return Message.objects.get(
+            id=pk,
+            conversation__user=request.user,
+            role="assistant",
+            mode__in=["FLASHCARD", "QUIZ"],
+        )
+
+    def patch(self, request, pk):
+        msg = self.get_object(request, pk)
+
+        title = (request.data.get("title") or "").strip()
+        if not title:
+            return Response({"detail": "title is required"}, status=400)
+
+        msg.title = title
+        msg.save(update_fields=["title"])
+
+        return Response(MessageSerializer(msg).data)
+
+    def delete(self, request, pk):
+        msg = self.get_object(request, pk)
+        msg.delete()
+        return Response(status=204)

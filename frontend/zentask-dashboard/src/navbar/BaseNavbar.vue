@@ -4,11 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import {
   BellIcon,
   SettingIcon,
-  TaskSquareIcon,
-  BriefcaseIcon,
   LogoutIcon,
-  DividerTop,
-  DividerBottom,
 } from '@/icons'
 
 interface Props {
@@ -83,14 +79,6 @@ const closeDropdown = () => {
 
 const goToSettings = () => {
   router.push('/settings')
-}
-
-const goToCreateTask = () => {
-  router.push('/create-task')
-}
-
-const goToMyWork = () => {
-  router.push('/my-work')
 }
 
 const handleLogout = async () => {
@@ -189,32 +177,6 @@ const handleLogout = async () => {
                 <img :src="SettingIcon" class="h-5 w-5" />
                 <div>Setting</div>
               </button>
-
-              <img :src="DividerTop" class="h-px w-full" />
-
-              <div class="flex w-full flex-col items-start">
-                <div class="p-1 text-xs text-[#737373]">
-                  Personal Tools
-                </div>
-
-                <button
-                  @click="goToCreateTask"
-                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7] cursor-pointer"
-                >
-                  <img :src="TaskSquareIcon" class="h-5 w-5" />
-                  <div>Create Task</div>
-                </button>
-
-                <button
-                  @click="goToMyWork"
-                  class="flex w-full items-center gap-2 p-2 hover:bg-[#f7f7f7] cursor-pointer"
-                >
-                  <img :src="BriefcaseIcon" class="h-5 w-5" />
-                  <div>My Work</div>
-                </button>
-              </div>
-
-              <img :src="DividerBottom" class="h-px w-full" />
 
               <button
                 @click="handleLogout"

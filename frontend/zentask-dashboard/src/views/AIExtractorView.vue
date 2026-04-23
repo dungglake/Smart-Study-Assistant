@@ -11,6 +11,9 @@ import {
   renameMaterial,
   streamChatMessage,
   uploadMaterial,
+  sendChatMessage,
+  renameStudioMessage,
+  deleteStudioMessage,
 } from '@/services/extractorApi'
 
 type ConversationItem = {
@@ -27,7 +30,7 @@ type MessageItem = {
   id?: number
   conversation?: number
   role: 'user' | 'assistant'
-  mode: 'CHAT' | 'FLASHCARD' | 'QUIZ' | 'MINDMAP'
+  mode: 'CHAT' | 'FLASHCARD' | 'QUIZ' 
   content: any
   created_at?: string
 }
@@ -282,10 +285,52 @@ watch(selectedConversationId, async (id) => {
     },
   })
 })
+const isRenamingStudioId = ref<number | null>(null)
+const studioRenameValue = ref('')
 
+const handleOpenStudioMenu = (id: number) => {
+  messages.value = messages.value.map((item) => ({
+    ...item,
+    menuOpen: item.id === id ? !item.menuOpen : false,
+  }))
+}
+
+const handleCloseStudioMenu = () => {
+  messages.value = messages.value.map((item) => ({
+    ...item,
+    menuOpen: false,
+  }))
+}
+
+const handleStartRenameStudio = (item: MessageItem) => {
+  isRenamingStudioId.value = item.id ?? null
+  studioRenameValue.value = item.title || ''
+}
+
+const handleCancelRenameStudio = () => {
+  isRenamingStudioId.value = null
+  studioRenameValue.value = ''
+}
+
+const handleSubmitRenameStudio = async (id: number) => {
+  const title = studioRenameValue.value.trim()
+  if (!title) return
+  const updated = await renameStudioMessage(id, title)
+
+  messages.value = messages.value.map((item) =>
+    item.id === id ? { ...item, title: updated.title, menuOpen: false } : item
+  )
+
+  handleCancelRenameStudio()
+}
+
+const handleDeleteStudioItem = async (id: number) => {
+  await deleteStudioMessage(id)
+  messages.value = messages.value.filter((item) => item.id !== id)
+}
 const handleSendMessage = async (payload: {
   conversation_id: number
-  mode: 'CHAT'
+  mode: 'CHAT' | 'FLASHCARD' | 'QUIZ' 
   message: string
 }) => {
   const text = payload.message.trim()
@@ -295,75 +340,102 @@ const handleSendMessage = async (payload: {
 
   const optimisticUserMessage: MessageItem = {
     role: 'user',
-    mode: 'CHAT',
+    mode: payload.mode,
     content: { text },
   }
 
   const assistantPlaceholder: MessageItem = {
     role: 'assistant',
-    mode: 'CHAT',
-    content: { text: '' },
+    mode: payload.mode,
+    content:
+      payload.mode === 'CHAT'
+        ? { text: '' }
+        : {
+            status: 'generating',
+            tool: payload.mode,
+            text: '',
+          },
   }
 
   messages.value = [...messages.value, optimisticUserMessage, assistantPlaceholder]
 
   try {
-    await streamChatMessage(payload, {
-      onStart(data) {
-        console.log('stream started', data)
-      },
+    if (payload.mode === 'CHAT') {
+      await streamChatMessage(payload, {
+        onStart(data) {
+          console.log('stream started', data)
+        },
 
-      onToken(token) {
-        const lastIndex = messages.value.length - 1
-        const last = messages.value[lastIndex]
+        onToken(token) {
+          const lastIndex = messages.value.length - 1
+          const last = messages.value[lastIndex]
 
-        if (!last || last.role !== 'assistant') return
+          if (!last || last.role !== 'assistant') return
 
-        messages.value[lastIndex] = {
-          ...last,
-          content: {
-            ...(last.content || {}),
-            text: ((last.content && last.content.text) || '') + token,
-          },
-        }
-      },
-
-      onDone(data) {
-        const assistantMessage = data?.assistant_message
-        if (!assistantMessage) return
-
-        const lastIndex = messages.value.length - 1
-        messages.value[lastIndex] = assistantMessage
-      },
-
-      onError(error) {
-        console.error('Stream error:', error)
-
-        const lastIndex = messages.value.length - 1
-        const last = messages.value[lastIndex]
-
-        if (last?.role === 'assistant') {
           messages.value[lastIndex] = {
             ...last,
             content: {
-              text: 'Cannot receive realtime feedback from server.',
+              ...(last.content || {}),
+              text: ((last.content && last.content.text) || '') + token,
             },
           }
-        }
-      },
-    })
-  } catch (error) {
-    console.error('Send stream failed:', error)
+        },
 
-    const trimmed = messages.value.slice(0, -1)
-    messages.value = [
-      ...trimmed,
-      {
-        role: 'assistant',
-        mode: 'CHAT',
-        content: { text: 'Cannot connect to chat stream.' },
+        onDone(data) {
+          const assistantMessage = data?.assistant_message
+          if (!assistantMessage) return
+
+          const lastIndex = messages.value.length - 1
+          messages.value[lastIndex] = assistantMessage
+        },
+
+        onError(error) {
+          console.error('Stream error:', error)
+
+          const lastIndex = messages.value.length - 1
+          const last = messages.value[lastIndex]
+
+          if (last?.role === 'assistant') {
+            messages.value[lastIndex] = {
+              ...last,
+              content: {
+                text: 'Cannot receive realtime feedback from server.',
+              },
+            }
+          }
+        },
+      })
+    } else {
+      const data = await sendChatMessage(payload)
+      const assistantMessage = data?.assistant_message
+
+      const lastIndex = messages.value.length - 1
+      if (assistantMessage) {
+        messages.value[lastIndex] = assistantMessage
+      } else {
+        messages.value[lastIndex] = {
+          role: 'assistant',
+          mode: payload.mode,
+          content: {
+            message: 'Generation failed.',
+          },
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Send failed:', error)
+
+    const lastIndex = messages.value.length - 1
+    messages.value[lastIndex] = {
+      role: 'assistant',
+      mode: payload.mode,
+      content: {
+        message:
+          payload.mode === 'CHAT'
+            ? 'Cannot connect to chat stream.'
+            : 'Cannot generate this content right now.',
       },
-    ]
+    }
   } finally {
     isSending.value = false
   }
@@ -416,5 +488,14 @@ onBeforeUnmount(() => {
     @submit-rename="handleSubmitRename"
     @delete-conversation="handleDeleteConversation"
     @send-message="handleSendMessage"
+    :is-renaming-studio-id="isRenamingStudioId"
+    :studio-rename-value="studioRenameValue"
+    @open-studio-menu="handleOpenStudioMenu"
+    @close-studio-menu="handleCloseStudioMenu"
+    @start-rename-studio="handleStartRenameStudio"
+    @cancel-rename-studio="handleCancelRenameStudio"
+    @update-studio-rename-value="studioRenameValue = $event"
+    @submit-rename-studio="handleSubmitRenameStudio"
+    @delete-studio-item="handleDeleteStudioItem"
   />
 </template>

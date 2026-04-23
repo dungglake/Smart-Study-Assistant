@@ -28,10 +28,7 @@ import Zentask from '@/assets/icon/Zentask.svg'
 import SmartStudyAssistant from '@/assets/icon/SmartStudyAssistant.svg'
 import SettingIcon from '@/assets/icon/iconsax-setting-2-6rfbtf2o-.svg'
 import TaskSquareIcon from '@/assets/icon/iconsax-task-square-rklaywil-.svg'
-import BriefcaseIcon from '@/assets/icon/iconsax-briefcase-vlmvpa3m-.svg'
 import LogoutIcon from '@/assets/icon/iconsax-logout-02-5tgvck5f-.svg'
-import DividerTop from '@/assets/icon/Vector 19.svg'
-import DividerBottom from '@/assets/icon/Vector 18.svg'
 import DropDown from '@/assets/icon/iconsax-arrow-down-02-ajobtnsq-.svg'
 import Edit from '@/assets/icon/iconsax-edit-2-cae2ja4r-.svg'
 
@@ -73,12 +70,14 @@ import SourceItemChatIcon from '@/assets/icon/source-item-chat.svg'
 import AddSourceIcon from '@/assets/icon/add-source-icon.svg'
 import AddCircleIcon from '@/assets/icon/add-purple.svg'
 import AddQuizIcon from '@/assets/icon/add-green.svg'
-import AddMindmapIcon from '@/assets/icon/add-yellow.svg'
 import FlashcardIcon from '@/assets/icon/flashcard-icon.svg'
 import QuizIcon from '@/assets/icon/quiz-icon.svg'
-import MindmapIcon from '@/assets/icon/mindmap-icon.svg'
 import EditIcon from '@/assets/icon/edit-icon-gray.svg'
 import DeleteIcon from '@/assets/icon/delete-icon.svg'
+import LoadingIcon from '@/assets/icon/load-icon.svg'
+import RefreshIcon from '@/assets/icon/refresh-icon.svg'
+import NextIcon from '@/assets/icon/next-icon.svg'
+import PrevIcon from '@/assets/icon/prev-icon.svg'
 
 export {
     Logo,
@@ -112,13 +111,11 @@ export {
     TickSquare,
     TimerIcon,
     FlagIcon,
-    BriefcaseIcon,
     LogoutIcon,
-    DividerTop,
-    DividerBottom,
     DropDown,
     DropUp,
     Edit,
+    LoadingIcon,
     WarningIcon,
     Book,
     ChevronLeft,
@@ -131,6 +128,9 @@ export {
     BannerDocs,
     Calendar,
     Overview,
+    PrevIcon,
+    NextIcon,
+    RefreshIcon,
     GenerateConfigTime,
     DropDownWhite,
     DropDownBlack,
@@ -143,10 +143,8 @@ export {
     DeleteIcon,
     EditIcon,
     FlashcardIcon,
-    MindmapIcon,
     QuizIcon,
     SourceItemChatIcon,
     SourceItemCheckIcon,
     AddQuizIcon,
-    AddMindmapIcon,
 }

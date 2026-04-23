@@ -63,13 +63,23 @@ export const deleteConversation = async (id: number) => {
     return res.data
 }
 
+export const renameStudioMessage = async (id: number, title: string) => {
+    const res = await api.patch(`/studio/messages/${id}/`, { title })
+    return res.data
+}
+
+export const deleteStudioMessage = async (id: number) => {
+    const res = await api.delete(`/studio/messages/${id}/`)
+    return res.data
+}
+
 export const sendChatMessage = async (payload: {
     conversation_id: number
-    mode: ChatMode
+    mode: 'CHAT' | 'FLASHCARD' | 'QUIZ' | 'MINDMAP'
     message: string
 }) => {
-    const res = await api.post('/chat/', payload)
-    return res.data
+    const { data } = await api.post('/chat/', payload)
+    return data
 }
 
 type StreamPayload = {

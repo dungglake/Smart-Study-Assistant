@@ -42,11 +42,12 @@ class Conversation(models.Model):
 
 class Message(models.Model):
     ROLE_CHOICES = [("user", "User"), ("assistant", "Assistant")]
-    MODE_CHOICES = [("CHAT", "Chat"), ("FLASHCARD", "Flashcard"), ("QUIZ", "Quiz"), ("MINDMAP", "Mindmap")]
+    MODE_CHOICES = [("CHAT", "Chat"), ("FLASHCARD", "Flashcard"), ("QUIZ", "Quiz"),]
 
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     mode = models.CharField(max_length=20, choices=MODE_CHOICES, default="CHAT")
+    title = models.CharField(max_length=255, blank=True, default="")
     content = models.JSONField()  
     created_at = models.DateTimeField(auto_now_add=True)
     

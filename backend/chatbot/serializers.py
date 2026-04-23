@@ -18,9 +18,12 @@ class ConversationSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = ["id", "conversation", "role", "mode", "content", "created_at"]
+        fields = ["id", "conversation", "role", "mode", "title", "content", "created_at"]
 
 class ChatRequestSerializer(serializers.Serializer):
     conversation_id = serializers.IntegerField()
-    mode = serializers.ChoiceField(choices=["CHAT", "FLASHCARD", "QUIZ", "MINDMAP"])
+    mode = serializers.ChoiceField(choices=["CHAT", "FLASHCARD", "QUIZ"])
     message = serializers.CharField()
+    
+class StudioMessageRenameSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
