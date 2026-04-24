@@ -255,14 +255,20 @@ const chatMessages = computed(() =>
 )
 
 const selectedStudioMessage = computed(() => {
-  if (!studioItems.value.length) return null
+  if (!selectedStudioMessageId.value) return null
 
-  const matched = studioItems.value.find(
-    (item) => item.id === selectedStudioMessageId.value
+  return (
+    studioItems.value.find(
+      (item) => item.id === selectedStudioMessageId.value
+    ) || null
   )
-
-  return matched || studioItems.value[studioItems.value.length - 1]
 })
+
+const selectConversation = (id: number) => {
+  selectedStudioMessageId.value = null
+  pendingStudioMode.value = null
+  emit('select-conversation', id)
+}
 
 watch(
   studioItems,
@@ -276,20 +282,17 @@ watch(
     const latest = items[items.length - 1]
     const oldLength = oldItems?.length ?? 0
 
-    if (items.length > oldLength) {
+    if (items.length > oldLength && pendingStudioMode.value) {
       const startedAt = pendingStartedAt.value
+
       if (startedAt) {
         const elapsed = Date.now() - startedAt
         const remain = Math.max(0, LOADING_MIN_MS - elapsed)
-        if (remain > 0) {
-          await sleep(remain)
-        }
+        if (remain > 0) await sleep(remain)
       }
 
       pendingStudioMode.value = null
       pendingStartedAt.value = null
-      selectedStudioMessageId.value = latest.id ?? null
-    } else if (!selectedStudioMessageId.value) {
       selectedStudioMessageId.value = latest.id ?? null
     }
 
@@ -455,7 +458,7 @@ const getQuizOptionClass = (messageId: number, question: any, optionIndex: numbe
     if (selected === optionIndex) {
       return 'bg-[#6460f41a] border-[#5c01d5] text-[#111827]'
     }
-    return 'bg-[#f3f4f6] border-[#d1d5db] text-[#111827] hover:bg-[#f9fafb]'
+    return 'bg-[#f3f4f6] border-[#d1d5db] text-[#111827] hover:bg-[#f9fafb] cursor-pointer'
   }
 
   if (optionIndex === correct) {
@@ -568,7 +571,7 @@ watch(
                       ? 'bg-[#ede9fe]'
                       : 'bg-transparent hover:bg-[#f3f4f6]'
                   "
-                  @click="$emit('select-conversation', item.id)"
+                  @click="selectConversation(item.id)"
                 >
                   <div class="w-6 h-6 shrink-0 flex items-center justify-center">
                     <img :src="SourceItemChatIcon" alt="Source item" class="w-6 h-6 object-contain" />
@@ -952,7 +955,7 @@ watch(
 
                 <button
                   v-if="openFlashcardAnswerId !== (selectedStudioMessage.id ?? 0)"
-                  class="absolute bottom-[32px] left-1/2 -translate-x-1/2 text-lg leading-7 z-[3]"
+                  class="absolute bottom-[32px] left-1/2 -translate-x-1/2 text-lg leading-7 z-[3] cursor-pointer"
                   @click.stop="showFlashcardAnswer(selectedStudioMessage.id ?? 0)"
                 >
                   See Answer
@@ -979,7 +982,7 @@ watch(
                         pt-12 px-8 pb-8 text-left text-lg text-white"
                 >
                   <button
-                    class="absolute top-[18px] right-[18px] p-2 z-[5]"
+                    class="absolute top-[18px] right-[18px] p-2 z-[5] cursor-pointer"
                     @click.stop="hideFlashcardAnswer"
                   >
                     <img :src="DeleteIcon" class="w-6 h-6 object-contain" alt="" />
@@ -995,7 +998,7 @@ watch(
 
               <div class="w-full flex items-center gap-4 mt-2">
                 <button
-                  class="rounded-[999px] bg-[#d9d9d9] border border-white p-2 shrink-0"
+                  class="rounded-[999px] bg-[#d9d9d9] border border-white p-2 shrink-0 cursor-pointer"
                   @click.stop="resetFlashcard(selectedStudioMessage.id ?? 0)"
                 >
                   <img :src="RefreshIcon" class="w-6 h-6 object-contain" alt="" />
@@ -1041,7 +1044,7 @@ watch(
                       </div>
 
                       <button @click.stop="closeQuizPopup">
-                        <img :src="DeleteIcon" class="w-6 h-6 object-contain" alt="" />
+                        <img :src="DeleteIcon" class="w-6 h-6 object-contain cursor-pointer" alt="" />
                       </button>
                     </div>
 
@@ -1056,7 +1059,7 @@ watch(
                     <button
                       v-for="(choice, optionIndex) in getQuizItems(selectedStudioMessage.content)[quizIndexByMessage[selectedStudioMessage.id ?? 0] ?? 0]?.choices || []"
                       :key="optionIndex"
-                      class="self-stretch rounded-xl border flex items-start p-8 gap-4 text-left transition"
+                      class="self-stretch rounded-xl border flex items-start p-8 gap-4 text-left transition cursor-pointer hover:scale-[1.01]"
                       :class="getQuizOptionClass(selectedStudioMessage.id ?? 0, getQuizItems(selectedStudioMessage.content)[quizIndexByMessage[selectedStudioMessage.id ?? 0] ?? 0], optionIndex)"
                       @click.stop="selectQuizAnswer(selectedStudioMessage.id ?? 0, optionIndex)"
                     >
@@ -1080,9 +1083,9 @@ watch(
                     </button>
                   </div>
 
-                  <div class="self-stretch shadow-[0px_-2px_12px_rgba(0,0,0,0.08)] flex items-center justify-end gap-6 pt-6">
+                  <div class="self-stretch flex items-center justify-end gap-6 pt-6">
                     <button
-                      class="h-10 w-[120px] rounded-md bg-white border border-[#d1d5db] flex items-center justify-center py-2 px-3 text-[#374151] disabled:opacity-40"
+                      class="h-10 w-[120px] rounded-md bg-white border border-[#d1d5db] flex items-center justify-center py-2 px-3 text-[#374151] disabled:opacity-40 cursor-pointer"
                       :disabled="(quizIndexByMessage[selectedStudioMessage.id ?? 0] ?? 0) <= 0"
                       @click.stop="goToPrevQuizQuestion(selectedStudioMessage.id ?? 0)"
                     >
@@ -1091,7 +1094,7 @@ watch(
 
                     <button
                       v-if="!(quizSubmittedByMessage[selectedStudioMessage.id ?? 0] ?? false)"
-                      class="w-[120px] rounded-md bg-[#5c01d5] flex items-center justify-center py-2 px-3 box-border text-white disabled:opacity-40"
+                      class="w-[120px] rounded-md bg-[#5c01d5] flex items-center justify-center py-2 px-3 box-border text-white disabled:opacity-40 cursor-pointer"
                       :disabled="(quizAnswersByMessage[selectedStudioMessage.id ?? 0] ?? -1) === -1"
                       @click.stop="submitQuizAnswer(selectedStudioMessage.id ?? 0)"
                     >
@@ -1100,7 +1103,7 @@ watch(
 
                     <button
                       v-else
-                      class="w-[120px] rounded-md bg-[#5c01d5] flex items-center justify-center py-2 px-3 box-border text-white disabled:opacity-40"
+                      class="w-[120px] rounded-md bg-[#5c01d5] flex items-center justify-center py-2 px-3 box-border text-white disabled:opacity-40 cursor-pointer"
                       :disabled="(quizIndexByMessage[selectedStudioMessage.id ?? 0] ?? 0) >= getQuizItems(selectedStudioMessage.content).length - 1"
                       @click.stop="goToNextQuizQuestion(selectedStudioMessage.id ?? 0, getQuizItems(selectedStudioMessage.content).length)"
                     >
