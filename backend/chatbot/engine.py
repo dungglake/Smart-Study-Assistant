@@ -1,3 +1,4 @@
+from pydoc import text
 import re
 import math
 from collections import OrderedDict
@@ -712,17 +713,33 @@ def generate_response(
 
     Rules:
     - Each flashcard must include:
-    - front: a short study question
-    - back: a short answer based only on the document
+    - The FRONT must always be a complete question.
+    - The BACK must be a short answer.
     - Keep each answer concise
     - Avoid duplicate ideas
     - Use simple, study-friendly wording
+    - Focus only on key concepts, definitions, terms, and facts from the document.
+    - Do NOT create flashcards about how to create flashcards, quizzes, mind maps, or study activities.
+    - Do NOT use instructions, formatting guides, or examples as flashcard content.
+    - Do NOT use only a title or keyword as the front.
+    - Each flashcard must be useful for studying the document topic.
+    - Use question forms such as:
+      What is ...?
+      What does ... mean?
+      What are the main types of ...?
+      Why is ... important?
 
     Format exactly:
-    Q: ...
+    Q: What is ...?
     A: ...
 
-    Q: ...
+    Q: What does ... mean?
+    A: ...
+
+    Q: What are ...?
+    A: ...
+
+    Q: Why is ... important?
     A: ...
     """.strip()
 
@@ -730,8 +747,10 @@ def generate_response(
             prompt,
             llm_chunks,
             query_type="tool",
-            conversation_history=conversation_history,
+            conversation_history=None,
         )
+        text = re.sub(r"(?m)^#+\s*", "", text).strip()
+        text = re.sub(r"(?m)^\s*[-*]\s*Q:", "Q:", text).strip()
 
         items = []
         for block in text.split("Q:"):
@@ -739,9 +758,15 @@ def generate_response(
             if not block or "A:" not in block:
                 continue
             q, a = block.split("A:", 1)
+            front = q.strip()
+            back = a.strip()
+
+            if "?" not in front:
+                front = f"What is {front}?"
+
             items.append({
-                "front": q.strip(),
-                "back": a.strip(),
+                "front": front,
+                "back": back,
                 "tags": ["auto"],
             })
 
@@ -772,8 +797,10 @@ def generate_response(
             prompt,
             llm_chunks,
             query_type="tool",
-            conversation_history=conversation_history,
+            conversation_history=None,
         )
+        text = re.sub(r"(?m)^#+\s*", "", text).strip()
+        text = re.sub(r"(?m)^\s*[-*]\s*Q:", "Q:", text).strip()
 
         items = []
         blocks = text.split("Q:")
