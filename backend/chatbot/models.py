@@ -25,11 +25,8 @@ class MaterialChunk(models.Model):
     order = models.IntegerField()
     text = models.TextField()
 
-<<<<<<< HEAD
     embedding = models.JSONField(null=True, blank=True)  
-=======
-    embedding = models.JSONField(null=True, blank=True)  # 👈 thêm dòng này
->>>>>>> 43d84a6 (build chatbot)
+    embedding = models.JSONField(null=True, blank=True) 
 
     class Meta:
         ordering = ["order"]
@@ -78,7 +75,7 @@ class ConversationMemory(models.Model):
     memory_type = models.CharField(
         max_length=30,
         default="fact"
-    )  # fact, preference, task, summary, profile
+    ) 
 
     text = models.TextField()
     embedding = models.JSONField(null=True, blank=True)

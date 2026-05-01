@@ -3,11 +3,7 @@ import re
 import math
 from collections import OrderedDict
 
-<<<<<<< HEAD
 from .models import MaterialChunk, ConversationMemory
-=======
-from .models import MaterialChunk
->>>>>>> 43d84a6 (build chatbot)
 from .local_llm import generate_llm_answer
 
 try:
@@ -50,7 +46,6 @@ COMPARE_QUERIES = {
     "compare", "so sanh", "so sánh", "difference", "khac nhau", "khác nhau"
 }
 
-<<<<<<< HEAD
 OVERVIEW_QUERIES = {
     "summary this file", "summarize this file", "document summary", "overview",
     "main topic", "main idea", "what is this file about", "what is this document about",
@@ -70,8 +65,6 @@ FOLLOW_UP_REFERENCES = {
     "phần đó", "phần trên", "ý trên", "cái đó", "nội dung đó", "đoạn đó", "mục đó",
 }
 
-=======
->>>>>>> 43d84a6 (build chatbot)
 GENERIC_STOP_LINES = [
     "page ", "trang ", "copyright", "all rights reserved"
 ]
@@ -113,23 +106,16 @@ def _contains_any(normalized: str, phrases: set[str]) -> bool:
 
 def _is_follow_up_document_query(normalized: str) -> bool:
     if _contains_any(normalized, FOLLOW_UP_EXPLAIN_QUERIES):
-<<<<<<< HEAD
         return True
 
     if any(ref in normalized for ref in FOLLOW_UP_REFERENCES):
-=======
->>>>>>> 43d84a6 (build chatbot)
         return True
 
     tokens = set(_tokenize(normalized))
     hints = {
         "sau", "hon", "hơn", "ky", "kỹ", "chi", "tiet", "tiết",
         "ro", "rõ", "mo", "mở", "rong", "rộng", "tai", "lieu",
-<<<<<<< HEAD
         "tài", "liệu", "do", "đó", "phan", "phần", "tren", "trên"
-=======
-        "tài", "liệu", "do", "đó", "phan", "phần"
->>>>>>> 43d84a6 (build chatbot)
     }
     return len(tokens & hints) >= 2
 
@@ -149,7 +135,6 @@ def _query_type(user_message: str) -> str:
     return "qa"
 
 
-<<<<<<< HEAD
 def detect_overview_query(user_message: str) -> bool:
     q = _normalize_text(user_message)
     if _contains_any(q, OVERVIEW_QUERIES):
@@ -169,8 +154,6 @@ def detect_factual_query(user_message: str) -> bool:
     return q.startswith(FACTUAL_PREFIXES)
 
 
-=======
->>>>>>> 43d84a6 (build chatbot)
 def _looks_like_heading(line: str) -> bool:
     raw = line.strip()
     low = raw.lower()
@@ -269,7 +252,6 @@ def _keyword_score(query: str, cleaned_text: str) -> float:
     score = float(len(overlap))
     q_low = _normalize_text(query)
     low = cleaned_text.lower()
-<<<<<<< HEAD
 
     if q_low and q_low in low:
         score += 4.0
@@ -474,26 +456,6 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
     if detect_overview_query(query):
         return retrieve_document_overview_chunks(material_id, limit=max(6, k))
 
-=======
-
-    if q_low and q_low in low:
-        score += 4.0
-
-    for keywords in DOMAIN_HINTS.values():
-        for kw in keywords:
-            if kw in q_low and kw in low:
-                score += 3.0
-
-    for keywords in TOPIC_HINTS.values():
-        for kw in keywords:
-            if kw in q_low and kw in low:
-                score += 2.0
-
-    return score
-
-
-def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
->>>>>>> 43d84a6 (build chatbot)
     chunks = MaterialChunk.objects.filter(material_id=material_id).only("id", "text", "embedding", "order")
     if not query.strip():
         return []
@@ -507,12 +469,8 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
 
     scored = []
     for c in chunks:
-<<<<<<< HEAD
         raw_text = (c.text or "")[:3000]
         cleaned = clean_chunk_text(raw_text)
-=======
-        cleaned = clean_chunk_text((c.text or "")[:3000])
->>>>>>> 43d84a6 (build chatbot)
         if not cleaned:
             continue
 
@@ -521,7 +479,6 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
         if query_embedding is not None and getattr(c, "embedding", None):
             semantic_score = _cosine_similarity(query_embedding, c.embedding)
 
-<<<<<<< HEAD
         heading_bonus = _heading_bonus(raw_text)
         density_penalty = -0.2 if len(cleaned) > 2200 else 0.0
 
@@ -537,40 +494,18 @@ def retrieve_top_chunks(material_id: int, query: str, k: int = 4):
                 semantic_score=semantic_score,
                 keyword_score=keyword_score,
             ))
-=======
-        if query_embedding is not None:
-            score = semantic_score * 10.0 + keyword_score * 0.35
-        else:
-            score = keyword_score
-
-        if score > 0:
-            scored.append({
-                "chunk": c,
-                "score": score,
-                "semantic_score": semantic_score,
-                "keyword_score": keyword_score,
-            })
->>>>>>> 43d84a6 (build chatbot)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:k]
 
 
-<<<<<<< HEAD
 def expand_with_neighbor_chunks(material_id: int, retrieved_chunks, window: int = 1, limit: int = 8):
     if not retrieved_chunks:
         return []
-=======
-def is_out_of_scope(retrieved_chunks, min_score: float = 0.6):
-    if not retrieved_chunks:
-        return True
-    return float(retrieved_chunks[0].get("score", 0)) < min_score
->>>>>>> 43d84a6 (build chatbot)
 
     base_by_id = {item["chunk"].id: item for item in retrieved_chunks}
     expanded_orders = set()
 
-<<<<<<< HEAD
     for item in retrieved_chunks:
         chunk = item["chunk"]
         order = getattr(chunk, "order", None)
@@ -596,36 +531,10 @@ def is_out_of_scope(retrieved_chunks, min_score: float = 0.6):
         else:
             results.append(_prepare_chunk_record(chunk, score=0.75))
         seen_ids.add(chunk.id)
-=======
-def suggest_title_and_summary(material):
-    chunks = MaterialChunk.objects.filter(material_id=material.id).order_by("order")[:8]
-    lines = []
-
-    for chunk in chunks:
-        cleaned = clean_chunk_text(chunk.text)
-        for line in cleaned.splitlines():
-            line = line.strip()
-            if len(line) >= 10 and line not in lines:
-                lines.append(line)
-
-    if not lines:
-        return material.title, ""
-
-    title = material.title
-    for line in lines:
-        low = line.lower()
-        if _looks_like_heading(line) or "machine learning" in low or "big data" in low:
-            title = line[:255]
-            break
-
-    summary = "\n".join(lines[:4]).strip()
-    return title[:255], summary[:900]
->>>>>>> 43d84a6 (build chatbot)
 
     results.sort(key=lambda x: (getattr(x["chunk"], "order", 10**9), -x["score"]))
     return results[:limit]
 
-<<<<<<< HEAD
 def retrieve_for_chat(material_id: int, query: str, k: int = 4, conversation_history=None):
     rewritten_query = rewrite_user_query(query, conversation_history=conversation_history)
 
@@ -654,18 +563,6 @@ def retrieve_for_chat(material_id: int, query: str, k: int = 4, conversation_his
         window=1,
         limit=max(8, k + 4),
     )
-=======
-def _format_history(conversation_history) -> str:
-    if not conversation_history:
-        return ""
-    parts = []
-    for item in conversation_history[-6:]:
-        role = item.get("role", "user")
-        text = (item.get("text") or "").strip()
-        if text:
-            parts.append(f"{role}: {text}")
-    return "\n".join(parts)
->>>>>>> 43d84a6 (build chatbot)
 
     final_candidates = expanded if expanded else primary
     final_ranked = _finalize_ranked_results(
@@ -675,7 +572,6 @@ def _format_history(conversation_history) -> str:
     )
     return final_ranked
 
-<<<<<<< HEAD
 def is_out_of_scope(retrieved_chunks, min_score: float = 0.6):
     if not retrieved_chunks:
         return True
@@ -723,18 +619,11 @@ def _prepare_chunks_for_llm(retrieved_chunks):
         chunk = item["chunk"]
         if chunk.id in seen_ids:
             continue
-=======
-def _prepare_chunks_for_llm(retrieved_chunks):
-    prepared = []
-    for item in retrieved_chunks:
-        chunk = item["chunk"]
->>>>>>> 43d84a6 (build chatbot)
         prepared.append({
             "chunk": chunk,
             "score": item.get("score", 0),
             "text": clean_chunk_text(chunk.text),
         })
-<<<<<<< HEAD
         seen_ids.add(chunk.id)
 
     return prepared
@@ -787,39 +676,6 @@ def _generate_llm_chat(
         return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="explain", conversation_history=conversation_history), "citations": []}
 
     return {"text": generate_llm_answer(effective_question, llm_chunks, query_type="qa", conversation_history=conversation_history), "citations": []}
-=======
-    return prepared
-
-
-def _generate_llm_chat(
-    mode: str,
-    user_message: str,
-    retrieved_chunks,
-    material_id=None,
-    conversation_history=None,
-):
-    del mode, material_id  # reserved for future extension
-
-    query_type = _query_type(user_message)
-    normalized = _normalize_text(user_message)
-    llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
-
-    # Tạm thời giữ history để đồng bộ API; có thể ghép sâu hơn vào local_llm sau.
-    _ = _format_history(conversation_history)
-
-    if query_type == "summary":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="summary"), "citations": []}
-    if query_type == "explain":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="explain"), "citations": []}
-    if query_type == "keypoints":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="keypoints"), "citations": []}
-    if query_type == "compare":
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="compare"), "citations": []}
-    if _is_follow_up_document_query(normalized):
-        return {"text": generate_llm_answer(user_message, llm_chunks, query_type="explain"), "citations": []}
-
-    return {"text": generate_llm_answer(user_message, llm_chunks, query_type="qa"), "citations": []}
->>>>>>> 43d84a6 (build chatbot)
 
 
 def generate_response(
@@ -834,11 +690,6 @@ def generate_response(
             return {"items": [], "message": OUT_OF_SCOPE_MESSAGE}
         if mode == "QUIZ":
             return {"items": [], "message": OUT_OF_SCOPE_MESSAGE}
-<<<<<<< HEAD
-=======
-        if mode == "MINDMAP":
-            return {"title": "Mindmap", "children": [], "message": OUT_OF_SCOPE_MESSAGE}
->>>>>>> 43d84a6 (build chatbot)
         return {"text": OUT_OF_SCOPE_MESSAGE, "citations": []}
 
     chunks = [item["chunk"] for item in retrieved_chunks]
@@ -851,11 +702,7 @@ def generate_response(
             material_id=material_id,
             conversation_history=conversation_history,
         )
-<<<<<<< HEAD
         content["citations"] = [{"chunk_id": c.id, "order": getattr(c, "order", None)} for c in chunks]
-=======
-        content["citations"] = [{"chunk_id": c.id} for c in chunks]
->>>>>>> 43d84a6 (build chatbot)
         return content
 
     if mode == "FLASHCARD":
@@ -918,22 +765,14 @@ def generate_response(
                 front = f"What is {front}?"
 
             items.append({
-<<<<<<< HEAD
                 "front": front,
                 "back": back,
                 "tags": ["auto"],
-=======
-                "front": "Ý chính của phần này là gì?",
-                "back": cleaned[:220].strip(),
-                "tags": ["mvp"],
-                "chunk_id": c.id,
->>>>>>> 43d84a6 (build chatbot)
             })
 
         return {"items": items[:4]}
 
     if mode == "QUIZ":
-<<<<<<< HEAD
         llm_chunks = _prepare_chunks_for_llm(retrieved_chunks)
 
         prompt = """
@@ -1185,37 +1024,3 @@ def build_memory_context(memory_hits):
         if mem.text:
             lines.append(f"- {mem.text.strip()}")
     return "\n".join(lines).strip()
-=======
-        return {
-            "items": [
-                {
-                    "type": "mcq",
-                    "question": "Nội dung chính của phần liên quan trong tài liệu là gì?",
-                    "choices": [
-                        "Khái niệm và mục tiêu chính",
-                        "Mã nguồn hệ thống",
-                        "Hướng dẫn cài đặt IDE",
-                        "Thông tin ngoài tài liệu",
-                    ],
-                    "answer_index": 0,
-                }
-            ]
-        }
-
-    if mode == "MINDMAP":
-        cleaned_titles = []
-        for c in chunks:
-            cleaned = clean_chunk_text(c.text)
-            first_line = cleaned.splitlines()[0] if cleaned else f"Chunk {c.id}"
-            cleaned_titles.append({
-                "title": first_line[:80],
-                "children": [],
-            })
-
-        return {
-            "title": "Mindmap (MVP)",
-            "children": cleaned_titles,
-        }
-
-    return {"text": "Unsupported mode"}
->>>>>>> 43d84a6 (build chatbot)
