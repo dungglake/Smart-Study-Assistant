@@ -43,6 +43,7 @@ def get_recent_history(conversation, limit: int = 6):
         history.append({"role": msg.role, "text": text})
     return history
 
+<<<<<<< HEAD
 def build_studio_default_title(conv, mode: str) -> str:
     if mode == "FLASHCARD":
         count = Message.objects.filter(
@@ -61,6 +62,8 @@ def build_studio_default_title(conv, mode: str) -> str:
         return f"Quiz {count + 1}"
 
     return ""
+=======
+>>>>>>> 43d84a6 (build chatbot)
 
 def process_material(material_id, user):
     material = Material.objects.get(id=material_id, user=user)
@@ -284,6 +287,7 @@ class ChatView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
+<<<<<<< HEAD
         dynamic_k = choose_dynamic_k(user_message, conversation_history=history)
         retrieved_chunks = retrieve_for_level2_chat(
             conv.material_id,
@@ -291,6 +295,9 @@ class ChatView(APIView):
             k=dynamic_k,
             conversation_history=history,
         )
+=======
+        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+>>>>>>> 43d84a6 (build chatbot)
         content = generate_response(
             mode,
             user_message,
@@ -340,6 +347,7 @@ class ChatStreamView(APIView):
         )
 
         history = get_recent_history(conv, limit=6)
+<<<<<<< HEAD
         dynamic_k = choose_dynamic_k(user_message, conversation_history=history)
         retrieved_chunks = retrieve_for_level2_chat(
             conv.material_id,
@@ -348,6 +356,9 @@ class ChatStreamView(APIView):
             conversation_history=history,
         )
 
+=======
+        retrieved_chunks = retrieve_top_chunks(conv.material_id, user_message, k=4)
+>>>>>>> 43d84a6 (build chatbot)
         content = generate_response(
             mode,
             user_message,
@@ -429,6 +440,7 @@ class ConversationMessagesView(APIView):
         conv = Conversation.objects.get(id=pk, user=request.user)
         messages = conv.messages.order_by("created_at")
         return Response(MessageSerializer(messages, many=True).data)
+<<<<<<< HEAD
 
 class StudioMessageDetailView(APIView):
     authentication_classes = [JWTAuthentication, SessionAuthentication]
@@ -458,3 +470,5 @@ class StudioMessageDetailView(APIView):
         msg = self.get_object(request, pk)
         msg.delete()
         return Response(status=204)
+=======
+>>>>>>> 43d84a6 (build chatbot)
