@@ -84,7 +84,7 @@ npm install
 npm run dev
 ```
 
-Frontend will run at:
+Frontend will run at (This is where you will test the project's functionality):
 
 ```bash
 http://localhost:5173
@@ -94,4 +94,4 @@ http://localhost:5173
 ## Notes
 
 Make sure the backend, frontend, and Ollama are running at the same time when testing planning schedule, AI features such as chat, quiz generation, and flashcard generation.
-And you need to register after log in.
+And you need to register after log in. 
