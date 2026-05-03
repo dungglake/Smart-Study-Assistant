@@ -245,8 +245,10 @@ const activateTool = (mode: 'FLASHCARD' | 'QUIZ') => {
 }
 
 const studioItems = computed(() =>
-  (props.messages || []).filter(
-    (msg) => msg.role === 'assistant' && msg.mode !== 'CHAT'
+  props.messages.filter(
+    (item) =>
+      item.role === 'assistant' &&
+      (item.mode === 'FLASHCARD' || item.mode === 'QUIZ')
   )
 )
 
@@ -356,12 +358,42 @@ const getStudioTitle = (message: MessageItem, index: number) => {
 }
 
 const getFlashcards = (content: any) => {
-  if (Array.isArray(content?.items)) return content.items
+  const normalized = normalizeContent(content)
+
+  if (Array.isArray(normalized?.items)) return normalized.items
+  if (Array.isArray(normalized?.content?.items)) return normalized.content.items
+  if (Array.isArray(normalized?.assistant_message?.content?.items)) {
+    return normalized.assistant_message.content.items
+  }
+
   return []
 }
 
+const normalizeContent = (content: any) => {
+  if (!content) return {}
+
+  if (typeof content === 'string') {
+    try {
+      return JSON.parse(content)
+    } catch {
+      return {}
+    }
+  }
+
+  return content
+}
+
 const getQuizItems = (content: any) => {
-  if (Array.isArray(content?.items)) return content.items
+  const normalized = normalizeContent(content)
+
+  console.log('QUIZ CONTENT NORMALIZED:', normalized)
+
+  if (Array.isArray(normalized?.items)) return normalized.items
+  if (Array.isArray(normalized?.content?.items)) return normalized.content.items
+  if (Array.isArray(normalized?.assistant_message?.content?.items)) {
+    return normalized.assistant_message.content.items
+  }
+
   return []
 }
 
@@ -383,6 +415,7 @@ const nextFlashcard = (messageId: number, total: number) => {
 }
 
 const selectQuizAnswer = (messageId: number, choiceIndex: number) => {
+  if (quizSubmittedByMessage.value[messageId]) return
   quizAnswersByMessage.value[messageId] = choiceIndex
 }
 
@@ -418,6 +451,18 @@ const resetFlashcard = (messageId: number) => {
 
 const openQuizPopup = (messageId: number) => {
   openQuizPopupId.value = messageId
+
+  if (quizIndexByMessage.value[messageId] == null) {
+    quizIndexByMessage.value[messageId] = 0
+  }
+
+  if (quizAnswersByMessage.value[messageId] == null) {
+    quizAnswersByMessage.value[messageId] = -1
+  }
+
+  if (quizSubmittedByMessage.value[messageId] == null) {
+    quizSubmittedByMessage.value[messageId] = false
+  }
 }
 
 const closeQuizPopup = () => {

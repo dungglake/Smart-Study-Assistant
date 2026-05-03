@@ -328,9 +328,10 @@ const handleDeleteStudioItem = async (id: number) => {
   await deleteStudioMessage(id)
   messages.value = messages.value.filter((item) => item.id !== id)
 }
+
 const handleSendMessage = async (payload: {
   conversation_id: number
-  mode: 'CHAT' | 'FLASHCARD' | 'QUIZ' 
+  mode: 'CHAT' | 'FLASHCARD' | 'QUIZ'
   message: string
 }) => {
   const text = payload.message.trim()
@@ -338,29 +339,26 @@ const handleSendMessage = async (payload: {
 
   isSending.value = true
 
-  const optimisticUserMessage: MessageItem = {
-    role: 'user',
-    mode: payload.mode,
-    content: { text },
-  }
-
-  const assistantPlaceholder: MessageItem = {
-    role: 'assistant',
-    mode: payload.mode,
-    content:
-      payload.mode === 'CHAT'
-        ? { text: '' }
-        : {
-            status: 'generating',
-            tool: payload.mode,
-            text: '',
-          },
-  }
-
-  messages.value = [...messages.value, optimisticUserMessage, assistantPlaceholder]
-
   try {
     if (payload.mode === 'CHAT') {
+      const optimisticUserMessage: MessageItem = {
+        role: 'user',
+        mode: payload.mode,
+        content: { text },
+      }
+
+      const assistantPlaceholder: MessageItem = {
+        role: 'assistant',
+        mode: payload.mode,
+        content: { text: '' },
+      }
+
+      messages.value = [
+        ...messages.value,
+        optimisticUserMessage,
+        assistantPlaceholder,
+      ]
+
       await streamChatMessage(payload, {
         onStart(data) {
           console.log('stream started', data)
@@ -409,32 +407,51 @@ const handleSendMessage = async (payload: {
       const data = await sendChatMessage(payload)
       const assistantMessage = data?.assistant_message
 
-      const lastIndex = messages.value.length - 1
+      console.log('STUDIO RESPONSE:', data)
+      console.log('ASSISTANT MESSAGE:', assistantMessage)
+      console.log('ASSISTANT CONTENT:', assistantMessage?.content)
+
       if (assistantMessage) {
-        messages.value[lastIndex] = assistantMessage
+        messages.value = [...messages.value, assistantMessage]
       } else {
-        messages.value[lastIndex] = {
-          role: 'assistant',
-          mode: payload.mode,
-          content: {
-            message: 'Generation failed.',
+        messages.value = [
+          ...messages.value,
+          {
+            role: 'assistant',
+            mode: payload.mode,
+            content: {
+              message: 'Generation failed.',
+              items: [],
+            },
           },
-        }
+        ]
       }
     }
   } catch (error) {
     console.error('Send failed:', error)
 
-    const lastIndex = messages.value.length - 1
-    messages.value[lastIndex] = {
-      role: 'assistant',
-      mode: payload.mode,
-      content: {
-        message:
-          payload.mode === 'CHAT'
-            ? 'Cannot connect to chat stream.'
-            : 'Cannot generate this content right now.',
-      },
+    if (payload.mode === 'CHAT') {
+      const lastIndex = messages.value.length - 1
+
+      messages.value[lastIndex] = {
+        role: 'assistant',
+        mode: payload.mode,
+        content: {
+          message: 'Cannot connect to chat stream.',
+        },
+      }
+    } else {
+      messages.value = [
+        ...messages.value,
+        {
+          role: 'assistant',
+          mode: payload.mode,
+          content: {
+            message: 'Cannot generate this content right now.',
+            items: [],
+          },
+        },
+      ]
     }
   } finally {
     isSending.value = false

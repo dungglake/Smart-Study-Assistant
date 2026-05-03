@@ -777,20 +777,41 @@ def generate_response(
 
         prompt = """
     Create 3 multiple-choice questions based only on the document.
+    Return ONLY this plain text format.
+    Do not use markdown headings.
+    Do not use bullet points.
+    Do not use bold text.
+    Do not add explanations.
 
     Rules:
     - Each question must have exactly 4 choices
     - Only 1 correct answer
     - Questions should test understanding of the document
     - Do not use outside knowledge
+    - If you cannot determine the correct answer, do not create that question.
 
     Format exactly:
-    Q: ...
-    A. ...
-    B. ...
-    C. ...
-    D. ...
+
+    Q: question text
+    A. choice text
+    B. choice text
+    C. choice text
+    D. choice text
     Answer: A
+
+    Q: question text
+    A. choice text
+    B. choice text
+    C. choice text
+    D. choice text
+    Answer: B
+
+    Q: question text
+    A. choice text
+    B. choice text
+    C. choice text
+    D. choice text
+    Answer: C
     """.strip()
 
         text = generate_llm_answer(
@@ -803,29 +824,55 @@ def generate_response(
         text = re.sub(r"(?m)^\s*[-*]\s*Q:", "Q:", text).strip()
 
         items = []
-        blocks = text.split("Q:")
+
+        text = re.sub(r"(?m)^#+\s*", "", text).strip()
+        text = text.replace("**", "")
+        text = re.sub(r"(?m)^\s*[-*•]\s*Q:", "Q:", text).strip()
+
+        blocks = re.split(r"(?=Q\s*[:\.\)])", text, flags=re.IGNORECASE)
+
         for block in blocks:
             block = block.strip()
-            if not block or "Answer:" not in block:
+            if not block:
                 continue
 
             lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
             if not lines:
                 continue
 
-            question = lines[0]
+            question = re.sub(
+                r"^Q\s*[:\.\)]\s*",
+                "",
+                lines[0],
+                flags=re.IGNORECASE
+            ).strip()
+
             choices = []
             answer_index = None
 
             for line in lines[1:]:
-                if line.startswith(("A.", "B.", "C.", "D.")):
-                    choices.append(line[2:].strip())
-                elif line.startswith("Answer:"):
-                    ans = line.replace("Answer:", "").strip().upper()
-                    mapping = {"A": 0, "B": 1, "C": 2, "D": 3}
-                    answer_index = mapping.get(ans)
+                clean = line.strip()
+                clean = re.sub(r"^[-*•]\s*", "", clean)
+                clean = clean.replace("**", "").strip()
 
-            if len(choices) == 4 and answer_index is not None:
+                choice_match = re.match(r"^([A-Da-d])[\.\):]\s*(.+)$", clean)
+                if choice_match:
+                    choices.append(choice_match.group(2).strip())
+                    continue
+
+                answer_match = re.match(
+                    r"^(answer|correct answer)\s*[:\-]\s*([A-Da-d])",
+                    clean,
+                    flags=re.IGNORECASE
+                )
+                if answer_match:
+                    ans = answer_match.group(2).upper()
+                    answer_index = {"A": 0, "B": 1, "C": 2, "D": 3}.get(ans)
+
+            if answer_index is None and len(choices) == 4:
+                answer_index = 0
+
+            if question and len(choices) == 4:
                 items.append({
                     "type": "mcq",
                     "question": question,
@@ -834,7 +881,6 @@ def generate_response(
                 })
 
         return {"items": items[:3]}
-    return {"text": "Unsupported mode"}
 
 def choose_dynamic_k(user_message: str, conversation_history=None) -> int:
     q = _normalize_text(user_message)
